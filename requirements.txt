@@ -1,0 +1,37 @@
+# 视频提取
+yt-dlp>=2024.1.1
+youtube-transcript-api>=0.6.1
+bilibili-api>=16.0.0
+
+# 语音识别
+openai-whisper>=20231117
+faster-whisper>=1.0.0
+
+# 知识图谱
+neo4j>=5.14.0
+py2neo>=2021.2.4
+networkx>=3.2.1
+
+# 向量检索
+chromadb>=0.4.18
+sentence-transformers>=2.3.1
+
+# NLP
+spacy>=3.7.2
+transformers>=4.35.0
+
+# LLM
+openai>=1.6.0
+zhipuai>=2.0.0
+
+# 文档生成
+markdown2>=2.4.12
+python-docx>=1.1.0
+
+# MCP（可选）
+mcp>=0.1.0
+
+# 工具
+python-dotenv>=1.0.0
+requests>=2.31.0
+tqdm>=4.66.1

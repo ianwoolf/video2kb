@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Data
+data/raw/*
+!data/raw/.gitkeep
+data/transcripts/*
+!data/transcripts/.gitkeep
+data/docs/*
+!data/docs/.gitkeep
+
+# Environment / Secrets
+.env
+.env.local
+
+# Hugging Face model cache
+models/
+*.bin
+*.safetensors
+*.ggml
+*.gguf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
