@@ -2,7 +2,7 @@
 
 ## 项目目标
 
-从 YouTube/Bilibili 视频中提取内容，进行实体识别，并构建知识图谱（GraphRAG），实现：
+从 YouTube/Bilibili 视频中提取内容，进行实体识别，并构建知识图谱（Knowledge Base），实现：
 1. 视频字幕/音频提取
 2. 内容总结
 3. 实体提取与关系映射
