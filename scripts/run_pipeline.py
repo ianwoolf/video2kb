@@ -58,15 +58,30 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
     transcript = video_info.get("transcript", "")
     audio_path = video_info.get("audio_path", "")
 
+    # Debug: Show what we got
+    logger.info("Video title: %s", video_info.get("title", "(unknown)"))
+    logger.info("Has transcript: %s", bool(transcript))
+    logger.info("Has audio: %s", bool(audio_path))
+    if audio_path:
+        logger.info("Audio path: %s", audio_path)
+
     # Step 2: If no subtitles, use ASR
     if not transcript and audio_path:
         logger.info("[2/6] Transcribing audio...")
-        transcript_result = run_script("transcribe.py", [
-            "--audio", audio_path,
-            "--output-dir", "data/transcripts",
-        ])
-        transcript = transcript_result.get("text", "")
-        video_info["transcript"] = transcript
+        try:
+            transcript_result = run_script("transcribe.py", [
+                "--audio", audio_path,
+                "--output-dir", "data/transcripts",
+            ])
+            transcript = transcript_result.get("text", "")
+            video_info["transcript"] = transcript
+            if transcript:
+                logger.info("Transcription successful, length: %d chars", len(transcript))
+            else:
+                logger.warning("Transcription completed but returned empty text")
+        except Exception as e:
+            logger.error("Transcription failed: %s", e)
+            return {"error": f"Transcription failed: {e}", "video_info": video_info}
     else:
         if transcript:
             logger.info("[2/6] Using extracted subtitle (skipping ASR)")
@@ -75,6 +90,11 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
 
     if not transcript:
         logger.error("No transcript available, cannot continue")
+        logger.error("Possible causes:")
+        logger.error("  1. No subtitle found (Bilibili) + audio download failed")
+        logger.error("  2. ffmpeg not installed (required for audio processing)")
+        logger.error("  3. yt-dlp not working (network issue or missing dependency)")
+        logger.error("  4. faster-whisper model download failed (Hugging Face access)")
         return {"error": "No transcript available", "video_info": video_info}
 
     # Step 3: Text summarization
