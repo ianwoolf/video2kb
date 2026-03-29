@@ -1,158 +1,158 @@
-# Neo4j Docker Compose 设置
+# Neo4j Docker Compose Setup
 
-## 快速启动
+## Quick Start
 
-### 1. 启动 Neo4j 容器
+### 1. Start the Neo4j Container
 
 ```bash
 cd /data/research/video-analysis
 docker-compose up -d
 ```
 
-### 2. 等待 Neo4j 启动（约30-60秒）
+### 2. Wait for Neo4j to Start (about 30-60 seconds)
 
 ```bash
-# 查看日志
+# View logs
 docker-compose logs -f neo4j
 
-# 等到看到类似这样的日志：
+# Wait until you see log entries similar to:
 # Remote interface available at http://localhost:7474/
 # Bolt enabled on 0.0.0.0:7687
 ```
 
-### 3. 测试连接
+### 3. Test the Connection
 
-打开浏览器访问：
-- **UI界面**: http://localhost:7474
-- **用户名**: neo4j
-- **密码**: password
+Open a browser and visit:
+- **UI Interface**: http://localhost:7474
+- **Username**: neo4j
+- **Password**: password
 
-或者用命令行测试：
+Or test via the command line:
 ```bash
 curl -u neo4j:password http://localhost:7474
 ```
 
 ---
 
-## 使用视频分析项目
+## Using with the Video Analysis Project
 
-确认 Neo4j 启动后，运行分析：
+Once Neo4j is running, run the analysis:
 
 ```bash
-# 使用 Neo4j 图数据库
-python main.py --url "你的B站链接" --graph neo4j
+# Use Neo4j graph database
+python main.py --url "your_bilibili_link" --graph neo4j
 
-# 或者修改 config.py 中的 GRAPH_DB_TYPE 为 "neo4j"
+# Or set GRAPH_DB_TYPE to "neo4j" in config.py
 ```
 
 ---
 
-## 常用命令
+## Common Commands
 
-### 查看状态
+### View Status
 ```bash
 docker-compose ps
 ```
 
-### 查看日志
+### View Logs
 ```bash
 docker-compose logs -f neo4j
 ```
 
-### 停止容器
+### Stop the Container
 ```bash
 docker-compose down
 ```
 
-### 完全清理（删除数据）
+### Full Cleanup (delete data)
 ```bash
 docker-compose down -v
 ```
 
-### 重启容器
+### Restart the Container
 ```bash
 docker-compose restart
 ```
 
 ---
 
-## 配置说明
+## Configuration Details
 
-### 端口映射
-| 容器端口 | 主机端口 | 用途 |
+### Port Mapping
+| Container Port | Host Port | Purpose |
 |----------|----------|------|
-| 7474     | 7474     | HTTP UI（浏览器访问） |
-| 7687     | 7687     | Bolt协议（程序连接） |
+| 7474     | 7474     | HTTP UI (browser access) |
+| 7687     | 7687     | Bolt protocol (program connection) |
 
-### 环境变量
-- `NEO4J_AUTH`: 用户名和密码（neo4j/password）
-- `NEO4J_PLUGINS`: 启用的插件（APOC）
-- `NEO4J_dbms_memory_*`: 内存配置
+### Environment Variables
+- `NEO4J_AUTH`: Username and password (neo4j/password)
+- `NEO4J_PLUGINS`: Enabled plugins (APOC)
+- `NEO4J_dbms_memory_*`: Memory configuration
 
-### 数据持久化
-数据存储在 Docker volumes 中：
-- `neo4j_data`: 数据库数据
-- `neo4j_logs`: 日志文件
-- `neo4j_import`: 导入文件
-- `neo4j_plugins`: 插件目录
+### Data Persistence
+Data is stored in Docker volumes:
+- `neo4j_data`: Database data
+- `neo4j_logs`: Log files
+- `neo4j_import`: Import files
+- `neo4j_plugins`: Plugin directory
 
 ---
 
-## 故障排除
+## Troubleshooting
 
-### 容器无法启动
+### Container Fails to Start
 ```bash
-# 检查端口是否被占用
+# Check if the port is already in use
 netstat -tuln | grep 7687
 
-# 或者
+# Or
 lsof -i :7687
 ```
 
-### 连接失败
+### Connection Failure
 ```bash
-# 检查 Neo4j 是否就绪
+# Check if Neo4j is ready
 docker-compose logs neo4j | grep "started"
 
-# 测试 Bolt 连接
+# Test Bolt connection
 nc -zv localhost 7687
 ```
 
-### 内存不足
-修改 `docker-compose.yml` 中的内存配置：
+### Insufficient Memory
+Modify the memory configuration in `docker-compose.yml`:
 ```yaml
 environment:
-  - NEO4J_dbms_memory_pagecache_size=512M  # 减少到512M
-  - NEO4J_dbms_memory_heap_max__size=256M   # 减少到256M
+  - NEO4J_dbms_memory_pagecache_size=512M  # Reduce to 512M
+  - NEO4J_dbms_memory_heap_max__size=256M   # Reduce to 256M
 ```
 
 ---
 
-## Neo4j UI 使用
+## Neo4j UI Usage
 
-1. 打开 http://localhost:7474
-2. 登录（neo4j/password）
-3. 在 Cypher Shell 中执行查询：
+1. Open http://localhost:7474
+2. Log in (neo4j/password)
+3. Execute queries in the Cypher Shell:
 
 ```cypher
-// 查看所有节点
+// View all nodes
 MATCH (n) RETURN n LIMIT 25
 
-// 查看所有关系
+// View all relationships
 MATCH ()-[r]->() RETURN r LIMIT 25
 
-// 统计节点数量
+// Count nodes
 MATCH (n) RETURN count(n)
 
-// 清空数据库（慎用！）
+// Clear the database (use with caution!)
 MATCH (n) DETACH DELETE n
 ```
 
 ---
 
-## 配置文件
+## Configuration File
 
-确保 `config.py` 中的配置与 docker-compose.yml 匹配：
+Ensure the settings in `config.py` match docker-compose.yml:
 
 ```python
 NEO4J_URI = "bolt://localhost:7687"

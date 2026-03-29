@@ -27,6 +27,7 @@ ENV/
 .venv
 
 # Data
+data/graph_state.gpickle
 data/raw/*
 !data/raw/.gitkeep
 data/transcripts/*

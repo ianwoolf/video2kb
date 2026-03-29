@@ -1,28 +1,28 @@
-# 使用指南
+# Usage Guide
 
-## 快速开始
+## Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
 cd /data/research/video-analysis
 pip install -r requirements.txt
 ```
 
-**Hugging Face 镜像（国内网络必需）：**
+**Hugging Face Mirror (required for networks in China):**
 
-由于 Hugging Face 在国内访问不稳定，需要设置镜像源：
+Since Hugging Face access is unstable in China, you need to set up a mirror source:
 
 ```bash
-# 临时生效
+# Temporary (current session only)
 export HF_ENDPOINT=https://hf-mirror.com
 
-# 永久生效（写入 shell 配置文件）
+# Permanent (write into shell config file)
 echo 'export HF_ENDPOINT=https://hf-mirror.com' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-**系统依赖：FFmpeg**（Whisper ASR 和 yt-dlp 音频提取都需要）：
+**System Dependency: FFmpeg** (required by both Whisper ASR and yt-dlp audio extraction):
 
 ```bash
 # macOS
@@ -35,12 +35,12 @@ sudo apt install ffmpeg
 sudo yum install ffmpeg
 ```
 
-### 2. 配置环境变量（可选）
+### 2. Configure Environment Variables (Optional)
 
-创建 `.env` 文件：
+Create a `.env` file:
 
 ```bash
-# API Keys（可选，默认会使用配置文件中的值）
+# API Keys (optional; defaults from config file will be used if not set)
 OPENAI_API_KEY=sk-xxx
 ZAI_API_KEY=xxx
 NEO4J_URI=bolt://localhost:7687
@@ -48,104 +48,104 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=password
 ```
 
-### 3. 运行Demo
+### 3. Run the Demo
 
-#### 方式A：分析单个视频（使用字幕）
+#### Option A: Analyze a Single Video (Using Subtitles)
 
 ```bash
 python main.py --url "https://www.youtube.com/watch?v=dQw4w9WgXcQ" --no-audio
 ```
 
-#### 方式B：分析单个视频（使用ASR）
+#### Option B: Analyze a Single Video (Using ASR)
 
 ```bash
 python main.py --url "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-#### 方式C：批量处理
+#### Option C: Batch Processing
 
-创建 `urls.txt` 文件：
+Create a `urls.txt` file:
 ```
 https://www.youtube.com/watch?v=xxx1
 https://www.youtube.com/watch?v=xxx2
 https://www.bilibili.com/video/xxx3
 ```
 
-运行：
+Run:
 ```bash
 python main.py --batch urls.txt
 ```
 
-#### 方式D：查询知识图谱
+#### Option D: Query the Knowledge Graph
 
 ```bash
-python main.py --query "实体名"
+python main.py --query "entity name"
 ```
 
 ---
 
-## 输出说明
+## Output Description
 
-### 文档结构
+### Document Structure
 
-生成的Markdown文档位于 `data/docs/` 目录，包含：
+Generated Markdown documents are located in the `data/docs/` directory and contain:
 
-- **视频信息**: 来源、链接、时长
-- **摘要**: 内容概览
-- **转录文本**: 完整字幕或ASR结果
-- **实体识别**: 人名、地名、组织等
-- **实体关系**: 实体间的语义关系
-- **时间线**: 实体在视频中的出现时间
+- **Video Info**: Source, link, duration
+- **Summary**: Content overview
+- **Transcript**: Full subtitles or ASR results
+- **Entity Recognition**: People, places, organizations, etc.
+- **Entity Relations**: Semantic relationships between entities
+- **Timeline**: Entity appearance timestamps within the video
 
-### 知识图谱
+### Knowledge Graph
 
-- **Neo4j模式**: 数据存储在Neo4j数据库中，可用Cypher查询
-- **NetworkX模式**: 数据存储在内存中，适合快速测试
+- **Neo4j Mode**: Data is stored in a Neo4j database and can be queried using Cypher
+- **NetworkX Mode**: Data is stored in memory, suitable for quick testing
 
 ---
 
-## 高级用法
+## Advanced Usage
 
-### 1. 自定义实体提取
+### 1. Custom Entity Extraction
 
-修改 `entity_extractor.py` 中的提示词，或集成自己的LLM API。
+Modify the prompt in `entity_extractor.py`, or integrate your own LLM API.
 
-### 2. 向量检索
+### 2. Vector Search
 
-启用向量检索：
+Enable vector search:
 
 ```python
 # config.py
 ENABLE_VECTOR_SEARCH = "true"
 ```
 
-### 3. MCP Server集成
+### 3. MCP Server Integration
 
-创建自定义MCP Server，让Claude/OpenClaw直接调用你的工具。
+Create a custom MCP Server to let Claude/OpenClaw directly call your tools.
 
-参考：`mcp_server/server.py`（可选实现）
+See: `mcp_server/server.py` (optional implementation)
 
 ---
 
-## 常见问题
+## Frequently Asked Questions
 
-### Q: ASR速度慢怎么办？
+### Q: ASR is slow, what should I do?
 
-**A:** 使用更小的Whisper模型：
+**A:** Use a smaller Whisper model:
 ```python
 # config.py
-WHISPER_MODEL = "tiny"  # 或 "base"
+WHISPER_MODEL = "tiny"  # or "base"
 ```
 
-### Q: Neo4j连接失败？
+### Q: Neo4j connection failed?
 
-**A:** 检查配置：
+**A:** Check your configuration:
 ```python
 # config.py
-GRAPH_DB_TYPE = "networkx"  # 先用NetworkX测试
+GRAPH_DB_TYPE = "networkx"  # Use NetworkX for testing first
 ```
 
-或确保Neo4j正在运行：
+Or make sure Neo4j is running:
 ```bash
 docker run -d --name neo4j \
     -p 7474:7474 -p 7687:7687 \
@@ -153,27 +153,27 @@ docker run -d --name neo4j \
     neo4j:5.15
 ```
 
-### Q: YouTube字幕获取失败？
+### Q: YouTube subtitle retrieval failed?
 
-**A:** 使用ASR（下载音频）：
+**A:** Use ASR (download audio):
 ```bash
-python main.py --url "..."  # 不加 --no-audio
+python main.py --url "..."  # omit --no-audio
 ```
 
 ---
 
-## 扩展建议
+## Extension Suggestions
 
-1. **多模态分析**: 结合视频帧内容
-2. **实时处理**: 使用流式API
-3. **可视化**: 用D3.js/Cytoscape.js展示知识图谱
-4. **RAG增强**: 集成向量数据库
+1. **Multimodal Analysis**: Incorporate video frame content
+2. **Real-time Processing**: Use streaming APIs
+3. **Visualization**: Display the knowledge graph with D3.js/Cytoscape.js
+4. **RAG Enhancement**: Integrate a vector database
 
 ---
 
-## 参考资料
+## References
 
-- [GraphRAG论文](https://arxiv.org/abs/2404.16130)
-- [Whisper文档](https://github.com/openai/whisper)
-- [yt-dlp文档](https://github.com/yt-dlp/yt-dlp)
+- [GraphRAG Paper](https://arxiv.org/abs/2404.16130)
+- [Whisper Documentation](https://github.com/openai/whisper)
+- [yt-dlp Documentation](https://github.com/yt-dlp/yt-dlp)
 - [Neo4j Cypher](https://neo4j.com/docs/cypher-manual/)

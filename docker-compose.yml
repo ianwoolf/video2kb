@@ -6,7 +6,7 @@ services:
     container_name: video-analysis-neo4j
     ports:
       - "7474:7474"  # HTTP UI
-      - "7687:7687"  # Bolt协议（数据库连接）
+      - "7687:7687"  # Bolt protocol (database connection)
     environment:
       - NEO4J_AUTH=neo4j/password
       - NEO4J_PLUGINS=["apoc"]

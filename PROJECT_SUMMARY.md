@@ -1,121 +1,121 @@
-# 项目总结
+# Project Summary
 
-## ✅ 已完成
+## ✅ Completed
 
-### 1. 核心代码模块
+### 1. Core Code Modules
 
-| 文件 | 功能 | 状态 |
-|------|------|------|
-| `video_extractor.py` | YouTube/Bilibili视频提取 | ✅ |
-| `transcriber.py` | Whisper ASR语音转录 | ✅ |
-| `entity_extractor.py` | 实体提取（spaCy + LLM） | ✅ |
-| `knowledge_graph.py` | 知识图谱（Neo4j + NetworkX） | ✅ |
-| `document_generator.py` | Markdown/Word文档生成 | ✅ |
-| `main.py` | 主程序Pipeline | ✅ |
-| `config.py` | 配置文件 | ✅ |
+| File | Function | Status |
+|------|----------|--------|
+| `video_extractor.py` | YouTube/Bilibili video extraction | ✅ |
+| `transcriber.py` | Whisper ASR speech transcription | ✅ |
+| `entity_extractor.py` | Entity extraction (spaCy + LLM) | ✅ |
+| `knowledge_graph.py` | Knowledge graph (Neo4j + NetworkX) | ✅ |
+| `document_generator.py` | Markdown/Word document generation | ✅ |
+| `main.py` | Main pipeline | ✅ |
+| `config.py` | Configuration file | ✅ |
 
-### 2. 文档
+### 2. Documentation
 
-| 文件 | 说明 |
-|------|------|
-| `README.md` | 完整技术方案与架构说明 |
-| `USAGE.md` | 使用指南与常见问题 |
-| `requirements.txt` | Python依赖清单 |
-| `.gitignore` | Git忽略规则 |
-| `quick_test.py` | 快速测试脚本 |
-| `PROJECT_SUMMARY.md` | 本文档 |
+| File | Description |
+|------|-------------|
+| `README.md` | Complete technical solution and architecture overview |
+| `USAGE.md` | Usage guide and FAQ |
+| `requirements.txt` | Python dependency list |
+| `.gitignore` | Git ignore rules |
+| `quick_test.py` | Quick test script |
+| `PROJECT_SUMMARY.md` | This document |
 
-### 3. 测试结果
+### 3. Test Results
 
-运行 `python quick_test.py` 成功：
-- ✅ 文档生成正常
-- ✅ 知识图谱构建正常
-- ✅ Pipeline流程完整
-
----
-
-## 📋 技术栈总结
-
-| 类别 | 技术 | 说明 |
-|------|------|------|
-| **视频提取** | yt-dlp, youtube-transcript-api, bilibili-api | YouTube/B站内容获取 |
-| **语音识别** | OpenAI Whisper (faster-whisper) | 音频转文字 |
-| **实体提取** | spaCy, LLM (GLM-4) | NLP实体识别 |
-| **知识图谱** | Neo4j / NetworkX | 图数据库/内存图 |
-| **向量检索** | ChromaDB, sentence-transformers | RAG增强（可扩展） |
-| **文档生成** | Markdown, python-docx | 报告输出 |
+Running `python quick_test.py` succeeded:
+- ✅ Document generation working
+- ✅ Knowledge graph construction working
+- ✅ Pipeline flow complete
 
 ---
 
-## 🚀 快速运行
+## 📋 Technology Stack Summary
 
-### 快速测试（无需下载视频）
+| Category | Technology | Description |
+|----------|------------|-------------|
+| **Video Extraction** | yt-dlp, youtube-transcript-api, bilibili-api | YouTube/Bilibili content retrieval |
+| **Speech Recognition** | OpenAI Whisper (faster-whisper) | Audio to text |
+| **Entity Extraction** | spaCy, LLM (GLM-4) | NLP entity recognition |
+| **Knowledge Graph** | Neo4j / NetworkX | Graph database / in-memory graph |
+| **Vector Retrieval** | ChromaDB, sentence-transformers | RAG enhancement (extensible) |
+| **Document Generation** | Markdown, python-docx | Report output |
+
+---
+
+## 🚀 Quick Start
+
+### Quick Test (no video download required)
 ```bash
 cd /data/research/video-analysis
 python quick_test.py
 ```
 
-### 分析真实视频
+### Analyze a Real Video
 ```bash
-# 使用字幕（快速）
+# Using subtitles (fast)
 python main.py --url "https://www.youtube.com/watch?v=xxx" --no-audio
 
-# 使用ASR（需下载音频）
+# Using ASR (requires audio download)
 python main.py --url "https://www.youtube.com/watch?v=xxx"
 
-# 批量处理
+# Batch processing
 python main.py --batch urls.txt
 
-# 查询知识图谱
-python main.py --query "实体名"
+# Query the knowledge graph
+python main.py --query "entity name"
 ```
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 /data/research/video-analysis/
-├── README.md                    # 技术方案
-├── USAGE.md                     # 使用指南
-├── PROJECT_SUMMARY.md           # 本文档
-├── requirements.txt             # 依赖清单
-├── config.py                    # 配置
-├── video_extractor.py           # 视频提取
-├── transcriber.py               # ASR转录
-├── entity_extractor.py          # 实体提取
-├── knowledge_graph.py           # 知识图谱
-├── document_generator.py        # 文档生成
-├── main.py                      # 主程序
-├── quick_test.py                # 快速测试
+├── README.md                    # Technical solution
+├── USAGE.md                     # Usage guide
+├── PROJECT_SUMMARY.md           # This document
+├── requirements.txt             # Dependency list
+├── config.py                    # Configuration
+├── video_extractor.py           # Video extraction
+├── transcriber.py               # ASR transcription
+├── entity_extractor.py          # Entity extraction
+├── knowledge_graph.py           # Knowledge graph
+├── document_generator.py        # Document generation
+├── main.py                      # Main program
+├── quick_test.py                # Quick test
 ├── .gitignore
-└── data/                        # 数据目录
-    ├── raw/                     # 原始音视频
-    ├── transcripts/            # 转录文本
-    └── docs/                    # 生成的文档
+└── data/                        # Data directory
+    ├── raw/                     # Raw audio/video
+    ├── transcripts/            # Transcribed text
+    └── docs/                    # Generated documents
 ```
 
 ---
 
-## 🔧 下一步扩展方向
+## 🔧 Next Steps and Extensions
 
-### 1. 安装完整依赖
+### 1. Install Full Dependencies
 ```bash
 pip install -r requirements.txt --break-system-packages
 ```
 
-### 2. 实体提取增强
-- 安装spaCy中文模型：`python -m spacy download zh_core_web_sm`
-- 集成真实LLM API（GLM-4/5）进行实体提取
-- 实现自定义提取规则
+### 2. Entity Extraction Enhancement
+- Install spaCy Chinese model: `python -m spacy download zh_core_web_sm`
+- Integrate real LLM API (GLM-4/5) for entity extraction
+- Implement custom extraction rules
 
-### 3. GraphRAG深度集成
-- 集成向量数据库（ChromaDB/Qdrant）
-- 实现混合检索（图谱 + 向量）
-- 添加时间轴可视化
+### 3. Deep GraphRAG Integration
+- Integrate vector database (ChromaDB/Qdrant)
+- Implement hybrid retrieval (graph + vector)
+- Add timeline visualization
 
-### 4. MCP Server开发
-创建自定义MCP Server，让Claude/OpenClaw直接调用：
+### 4. MCP Server Development
+Create a custom MCP Server for Claude/OpenClaw to call directly:
 ```python
 # mcp_server/server.py
 from mcp.server import Server
@@ -124,52 +124,52 @@ server = Server("video-analysis")
 
 @server.tool()
 async def analyze_video(url: str) -> str:
-    """分析视频并返回摘要"""
-    # 调用你的分析逻辑
+    """Analyze video and return summary"""
+    # Call your analysis logic
     return summary
 ```
 
-### 5. 可视化前端
-- 用D3.js/Cytoscape.js展示知识图谱
-- 视频时间轴与实体联动
-- Web界面：Streamlit/Gradio
+### 5. Visualization Frontend
+- Use D3.js/Cytoscape.js to display the knowledge graph
+- Link video timeline with entities
+- Web interface: Streamlit/Gradio
 
-### 6. 实时处理
-- 直播流实时转录
-- WebSocket推送分析结果
-- 增量图谱更新
-
----
-
-## 📚 参考资源
-
-- [GraphRAG论文](https://arxiv.org/abs/2404.16130)
-- [MCP协议](https://modelcontextprotocol.io/)
-- [Whisper文档](https://github.com/openai/whisper)
-- [yt-dlp文档](https://github.com/yt-dlp/yt-dlp)
-- [Neo4j图数据库](https://neo4j.com/)
+### 6. Real-time Processing
+- Live stream real-time transcription
+- WebSocket push analysis results
+- Incremental graph updates
 
 ---
 
-## ⚠️ 注意事项
+## 📚 Reference Resources
 
-1. **API限制**: YouTube字幕可能无法获取，建议使用ASR
-2. **性能**: Whisper大模型推理慢，可用tiny/base模型
-3. **依赖**: 部分依赖需额外安装（spaCy、Neo4j等）
-4. **环境**: 推荐使用虚拟环境而非系统Python
-
----
-
-## ✨ Demo亮点
-
-- ✨ **完整Pipeline**: 从视频到文档的自动化流程
-- ✨ **知识图谱**: 支持Neo4j和NetworkX
-- ✨ **GraphRAG**: 实体-关系-时间轴映射
-- ✨ **可扩展**: 模块化设计，易于扩展
-- ✨ **生产就绪**: 包含配置、日志、错误处理
+- [GraphRAG Paper](https://arxiv.org/abs/2404.16130)
+- [MCP Protocol](https://modelcontextprotocol.io/)
+- [Whisper Documentation](https://github.com/openai/whisper)
+- [yt-dlp Documentation](https://github.com/yt-dlp/yt-dlp)
+- [Neo4j Graph Database](https://neo4j.com/)
 
 ---
 
-**创建时间**: 2026-03-26
-**版本**: v1.0
-**作者**: AI Assistant + You
+## ⚠️ Notes
+
+1. **API Limitations**: YouTube subtitles may not always be available; ASR is recommended as a fallback
+2. **Performance**: Whisper large model inference is slow; the tiny/base models can be used instead
+3. **Dependencies**: Some dependencies require additional installation (spaCy, Neo4j, etc.)
+4. **Environment**: Using a virtual environment is recommended over system Python
+
+---
+
+## ✨ Demo Highlights
+
+- ✨ **Complete Pipeline**: Automated workflow from video to document
+- ✨ **Knowledge Graph**: Supports both Neo4j and NetworkX
+- ✨ **GraphRAG**: Entity-relationship-timeline mapping
+- ✨ **Extensible**: Modular design, easy to extend
+- ✨ **Production Ready**: Includes configuration, logging, and error handling
+
+---
+
+**Created**: 2026-03-26
+**Version**: v1.0
+**Author**: AI Assistant + You
