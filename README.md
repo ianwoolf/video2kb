@@ -1,416 +1,122 @@
-# Video Content Analysis Demo - Technical Solution and Implementation
+# video2kb — 视频内容分析与知识图谱系统
 
-## Project Goal
+将 YouTube/Bilibili 视频转化为结构化知识：提取内容 → AI 分析 → 构建知识图谱 → 语义检索。
 
-Extract content from YouTube/Bilibili videos, perform entity recognition, and build a Knowledge Graph (Knowledge Base), achieving:
-1. Video subtitle/audio extraction
-2. Content summarization
-3. Entity extraction and relationship mapping
-4. Knowledge graph storage and retrieval
-
----
-
-## Technology Stack Analysis
-
-### 1. Video Content Extraction
-
-| Platform | Recommended Tool | Description |
-|------|----------|------|
-| **YouTube** | `yt-dlp` + `youtube-transcript-api` | Extract subtitles, audio, metadata |
-| **Bilibili** | `bilibili-api` + `yt-dlp` | Extract subtitles, video information |
-
-**Core Libraries:**
-```python
-# YouTube
-yt-dlp                    # Download video/audio/subtitles
-youtube-transcript-api    # Fetch subtitle text
-
-# Bilibili
-bilibili-api              # Bilibili API wrapper
-yt-dlp                    # General-purpose video downloader
-```
-
-**System Dependencies:**
-- **FFmpeg**: The core tool for audio/video processing. `yt-dlp` depends on it to extract audio streams from video files; Whisper ASR also depends on it for audio format conversion. Without FFmpeg, neither audio extraction nor speech recognition can run.
-
----
-
-### 2. Speech Recognition (ASR)
-
-If the video has no subtitles, text needs to be extracted from the audio:
-
-| Tool | Advantage | Use Case |
-|------|------|----------|
-| **Whisper** | High accuracy, open-source, multilingual | Local deployment |
-| **Faster-Whisper** | Fast speed | Large-scale batch processing |
-| **Azure/Google/Tencent ASR** | Cloud service | Production environments |
-
-**Recommended:**
-```python
-openai-whisper          # OpenAI official model
-faster-whisper          # Optimized inference version
-```
-
-**Model Download:**
-- **Hugging Face Hub**: Model weight files for Whisper and similar models are hosted on Hugging Face. On first run, `faster-whisper` automatically downloads models to the local cache (`~/.cache/huggingface/`) via `huggingface_hub`. Access to Hugging Face from within mainland China can be unstable, so you need to set the mirror source `HF_ENDPOINT=https://hf-mirror.com` to accelerate downloads.
-
----
-
-### 3. MCP (Model Context Protocol)
-
-MCP is a protocol proposed by Anthropic for connecting AI models with external tools/data sources.
-
-**Existing MCP Tools:**
-- `@modelcontextprotocol/server-filesystem` - File system access
-- `@modelcontextprotocol/server-brave-search` - Web search
-- `@modelcontextprotocol/server-git` - Git operations
-- Custom MCP Server - Wrap your video analysis logic
-
-**Why MCP?**
-- Standardized protocol, easy to integrate into MCP-supported platforms like Claude
-- Lightweight tool invocation
-- Highly extensible
-
----
-
-### 4. GraphRAG (Graph-based Retrieval Augmented Generation)
-
-GraphRAG combines knowledge graphs with vector retrieval to improve RAG effectiveness.
-
-**Core Components:**
-1. **Entity Extraction**
-   - LLM identifies entities from text (person names, locations, concepts, etc.)
-   - Extracts relationships between entities
-
-2. **Knowledge Graph Construction**
-   - Graph database storage (Neo4j / Memgraph / NetworkX)
-   - Nodes = Entities, Edges = Relationships
-
-3. **Vector Embedding**
-   - Vectorize entities/documents
-   - Support similarity retrieval
-
-4. **Retrieval Augmentation**
-   - At query time: entity -> graph -> related documents
-   - Combine vector retrieval with graph traversal
-
-**Recommended Technology Stack:**
-```python
-# Knowledge Graph
-neo4j                    # Production-grade graph database
-memgraph                 # Neo4j-compatible high-performance version
-networkx                 # Lightweight, suitable for demos
-
-# Vector Retrieval
-chromadb / qdrant        # Vector databases
-sentence-transformers    # Chinese embedding models
-
-# Entity Extraction
-spaCy / LlamaIndex       # NLP entity recognition
-LLM (GLM-4, Claude)      # LLM-based extraction
-```
-
----
-
-## System Architecture
+## 架构概览
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       User Request                           │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │    MCP Server         │
-         │  (Tool/Data Wrapper)  │
-         └───────────┬───────────┘
-                     │
-         ┌───────────┴───────────┐
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│ Video Extraction│     │ Knowledge Graph │
-│ - YouTube/Bili  │     │ - Entity Extract│
-│ - Subtitle/Audio│     │ - Relation Map  │
-│ - Whisper ASR  │     │ - Graph Storage │
-└────────┬────────┘     └────────┬────────┘
-         │                       │
-         └───────────┬───────────┘
-                     │
-                     ▼
-         ┌───────────────────────┐
-         │  Content Analysis     │
-         │    Engine             │
-         │  - Doc Generation     │
-         │  - Entity Recog (LLM) │
-         │  - GraphRAG           │
-         └───────────────────────┘
-                     │
-         ┌───────────┴───────────┐
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐
-│  Document Output│     │  Knowledge Graph│
-│  Markdown/Word  │     │  Neo4j/GraphDB  │
-└─────────────────┘     └─────────────────┘
+Part 1 (采集分析)                    Part 2 (数据服务)
+┌─────────────────┐               ┌──────────────────────┐
+│ 视频抓取        │               │ POST /api/ingest     │
+│ (yt-dlp)        │               │ GET  /api/query/*    │
+├─────────────────┤    HTTP       ├──────────┬───────────┤
+│ ASR 转写        │ ──────────→  │ Neo4j    │ ChromaDB  │
+│ (Whisper)       │   REST JSON  │ 图数据库  │ 向量库    │
+├─────────────────┤               ├──────────┴───────────┤
+│ LLM 总结/实体   │               │ FastAPI              │
+│ (智谱/OpenAI)   │               │                      │
+└─────────────────┘               └──────────────────────┘
 ```
 
----
+## 快速开始
 
-## Demo Implementation
+### 前置条件
 
-### Directory Structure
+- Docker + Docker Compose
+- FFmpeg（Part 1 容器内已包含）
+- 智谱 API Key（LLM + Embedding）
+
+### 1. 配置
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 ZAI_API_KEY 等
+```
+
+### 2. 启动 Part 2（数据服务）
+
+```bash
+docker-compose -f docker-compose.part2.yml up -d
+# API: http://localhost:8000
+# Neo4j UI: http://localhost:7474
+# API 文档: http://localhost:8000/docs
+```
+
+### 3. 分析视频
+
+```bash
+# Docker 方式
+docker-compose -f docker-compose.part1.yml run analyzer --url "https://www.youtube.com/watch?v=xxx"
+
+# 或本地运行（需安装依赖）
+cd part1 && pip install -r requirements.txt
+python run.py --url "https://www.youtube.com/watch?v=xxx"
+```
+
+### 4. 查询
+
+```bash
+# 查询实体
+curl -H "X-API-Key: your_key" http://localhost:8000/api/query/entity?name=张三
+
+# 语义搜索
+curl -H "X-API-Key: your key" -H "Content-Type: application/json" \
+  -d '{"query": "人工智能的未来发展"}' \
+  http://localhost:8000/api/query/search
+```
+
+## 目录结构
 
 ```
 video2kb/
-├── README.md                    # This document
-├── requirements.txt             # Dependencies
-├── config.py                   # Configuration file
-├── video_extractor.py          # Video extraction module
-├── transcriber.py              # ASR transcription module
-├── entity_extractor.py         # Entity extraction module
-├── knowledge_graph.py          # Knowledge graph module
-├── document_generator.py       # Document generation module
-├── main.py                     # Main program
-├── data/                       # Data directory
-│   ├── raw/                    # Raw video/audio
-│   ├── transcripts/            # Transcribed text
-│   └── docs/                   # Generated documents
-└── mcp_server/                 # MCP server (optional)
-    └── server.py
+├── shared/                  # Part 1/2 共享数据模型
+│   └── schema.py
+├── part1/                   # 采集分析服务
+│   ├── run.py               # 入口
+│   ├── scripts/
+│   │   ├── extract_video.py # 视频提取
+│   │   ├── transcribe.py    # ASR 转写
+│   │   ├── summarize.py     # LLM 总结
+│   │   ├── extract_entities.py  # 实体/关系提取
+│   │   ├── data_client.py   # Part 2 通信
+│   │   ├── generate_report.py   # 报告生成
+│   │   └── run_pipeline.py  # Pipeline 编排
+│   └── requirements.txt
+├── part2/                   # 数据服务
+│   ├── app/
+│   │   ├── main.py          # FastAPI 入口
+│   │   ├── config.py        # 配置管理
+│   │   ├── routers/         # API 路由
+│   │   └── services/        # 业务逻辑
+│   └── requirements.txt
+├── Dockerfile.part1
+├── Dockerfile.part2
+├── docker-compose.part1.yml
+├── docker-compose.part2.yml
+└── .env.example
 ```
 
----
+## API 接口
 
-## Quick Start
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/ingest | 接收分析结果，存入图数据库+向量库 |
+| GET | /api/query/entity?name=xxx | 查询实体及关联关系 |
+| GET | /api/query/video?url=xxx | 查询视频的所有实体 |
+| POST | /api/query/search | 语义搜索（自然语言查询） |
+| GET | /api/query/subgraph?entity=xxx&depth=2 | 子图遍历 |
 
-### 1. Install Dependencies
+## 技术栈
 
-```bash
-cd /data/research/video-analysis
-pip install -r requirements.txt
-```
+- **视频提取**: yt-dlp, youtube-transcript-api
+- **语音识别**: faster-whisper
+- **LLM**: 智谱 GLM (zhipuai SDK) / OpenAI
+- **图数据库**: Neo4j (Docker)
+- **向量库**: ChromaDB
+- **Embedding**: 智谱 embedding-3 API
+- **API 框架**: FastAPI
+- **容器化**: Docker + Docker Compose
 
-**Hugging Face Mirror (required for mainland China networks):**
+## License
 
-Since Hugging Face access is unstable within mainland China, you need to set a mirror source:
-
-```bash
-# Temporary (current session only)
-export HF_ENDPOINT=https://hf-mirror.com
-
-# Permanent (write to shell config file)
-echo 'export HF_ENDPOINT=https://hf-mirror.com' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**System Dependency: FFmpeg** (required for both Whisper ASR and yt-dlp audio extraction):
-
-```bash
-# macOS
-brew install ffmpeg
-
-# Ubuntu/Debian
-sudo apt install ffmpeg
-
-# CentOS/RHEL
-sudo yum install ffmpeg
-```
-
-### 2. Configure Environment Variables
-
-Edit `config.py` or create a `.env` file:
-
-```python
-# API Keys
-OPENAI_API_KEY="sk-xxx"        # If using OpenAI Whisper
-ZAI_API_KEY="xxx"               # Zhipu GLM
-NEO4J_URI="bolt://localhost:7687"
-NEO4J_USER="neo4j"
-NEO4J_PASSWORD="password"
-```
-
-### 3. Run the Demo
-
-```bash
-# Extract and analyze a single video
-python main.py --url "https://www.youtube.com/watch?v=xxx"
-
-# Batch processing
-python main.py --batch urls.txt
-```
-
----
-
-## OpenClaw Skills Configuration
-
-This project includes OpenClaw skills for AI agent integration. Each skill has specific environment variable requirements.
-
-### Skill Environment Variables
-
-| Skill | Required Environment Variables | Optional Environment Variables |
-|-------|-------------------------------|--------------------------------|
-| `video-extract` | - | - |
-| `whisper-transcribe` | - | `WHISPER_MODEL` (default: `base`) |
-| `text-summarize` | - | `ZAI_API_KEY`, `OPENAI_API_KEY`, `LLM_MODEL` |
-| `entity-extract` | - | `ZAI_API_KEY`, `OPENAI_API_KEY`, `SPACY_MODEL` |
-| `knowledge-graph` | - | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `GRAPH_DB_TYPE` |
-| `report-generator` | - | `DOC_FORMAT` |
-
-### Environment Variable Reference
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ZAI_API_KEY` | Zhipu AI API key for LLM features | - |
-| `OPENAI_API_KEY` | OpenAI API key for LLM features | - |
-| `WHISPER_MODEL` | Whisper model size | `base` (tiny/base/small/medium/large) |
-| `LLM_MODEL` | LLM model name | `glm-5` |
-| `SPACY_MODEL` | spaCy NLP model | `zh_core_web_sm` |
-| `NEO4J_URI` | Neo4j connection URI | `bolt://localhost:7687` |
-| `NEO4J_USER` | Neo4j username | `neo4j` |
-| `NEO4J_PASSWORD` | Neo4j password | `password` |
-| `GRAPH_DB_TYPE` | Graph database type | `networkx` (networkx/neo4j) |
-| `DOC_FORMAT` | Report output format | `markdown` (markdown/word/both) |
-
-### Setup for OpenClaw
-
-1. Copy `.env.example` to `.env` and configure your values:
-```bash
-cp .env.example .env
-# Edit .env with your API keys and preferences
-```
-
-2. The `.openclaw` directory structure:
-```
-.openclaw/
-├── workspace-video-kb/    # Workspace configuration
-│   ├── SOUL.md            # Agent behavior
-│   ├── AGENTS.md          # Orchestration flow
-│   ├── TOOLS.md           # Tool permissions
-│   └── USER.md            # User preferences
-└── skills/                # Individual skills
-    ├── video-extract/
-    ├── whisper-transcribe/
-    ├── text-summarize/
-    ├── entity-extract/
-    ├── knowledge-graph/
-    └── report-generator/
-```
-
-3. When using OpenClaw, environment variables from `.env` are automatically loaded by the skill scripts.
-
----
-
-## Technical Deep Dive
-
-### 1. Entity Extraction Strategy
-
-**Approach A: Rule-based (fast but imprecise)**
-```python
-import spacy
-nlp = spacy.load("zh_core_web_sm")
-doc = nlp(text)
-entities = [(ent.text, ent.label_) for ent in doc.ents]
-```
-
-**Approach B: LLM-based (precise but slower)**
-```python
-from llama_index.core.node_parser import EntityExtractor
-extractor = EntityExtractor()
-entities = extractor.extract(text)
-```
-
-**Recommended:** Hybrid strategy - use rules for initial filtering, then LLM for fine-grained extraction
-
----
-
-### 2. GraphRAG Implementation
-
-**Core Approach:**
-1. Segment the video by time
-2. Extract entities and relationships from each segment
-3. Entities as nodes, relationships as edges
-4. Edge attributes include: timestamp, video URL, confidence
-
-**Neo4j Cypher Example:**
-```cypher
-// Create entity
-CREATE (p:Person {name: "张三", source: "video_001"})
-
-// Create relationship
-MATCH (p1:Person {name: "张三"})
-MATCH (p2:Person {name: "李四"})
-CREATE (p1)-[:KNOWS {video: "https://...", timestamp: 120}]->(p2)
-```
-
-**At Query Time:**
-```cypher
-// Find all content related to a specific entity
-MATCH (e:Entity {name: "关键词"})-[:MENTIONED_IN]->(v:Video)
-RETURN v.url, v.timestamp
-```
-
----
-
-### 3. MCP Server Design
-
-**Sample MCP Server Structure:**
-
-```python
-from mcp.server import Server
-from mcp.types import Tool
-
-server = Server("video-analysis")
-
-@server.tool()
-async def extract_video(url: str) -> str:
-    """Extract video content and summarize"""
-    # Call your video extraction module
-    return summary
-
-@server.tool()
-async def query_graph(entity: str) -> str:
-    """Query the knowledge graph"""
-    # Query Neo4j
-    return results
-```
-
-**Claude / OpenClaw Integration:**
-- Call your tools via MCP
-- Natural language -> video/graph queries
-
----
-
-## Future Directions
-
-1. **Multimodal Analysis**
-   - Incorporate video frames (visual content)
-   - Audio sentiment analysis
-
-2. **Real-time Stream Processing**
-   - Live stream real-time transcription
-   - Real-time entity extraction
-
-3. **RAG Enhancement**
-   - Integrate vector databases (Chroma/Qdrant)
-   - Hybrid retrieval (graph + vector)
-
-4. **Frontend Visualization**
-   - D3.js / Cytoscape.js for knowledge graph display
-   - Video timeline linked with entities
-
----
-
-## References
-
-- [GraphRAG Paper](https://arxiv.org/abs/2404.16130)
-- [MCP Protocol Documentation](https://modelcontextprotocol.io/)
-- [Neo4j GraphRAG Tutorial](https://neo4j.com/developer-blog/graphrag/)
-- [Whisper Official Documentation](https://github.com/openai/whisper)
-- [yt-dlp Documentation](https://github.com/yt-dlp/yt-dlp)
-
----
-
-## Next Steps
-
-Check out the code implementation of each module, and run `main.py` to get started!
+MIT

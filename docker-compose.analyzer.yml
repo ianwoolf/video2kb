@@ -1,0 +1,22 @@
+name: video2kb-analyzer
+
+services:
+  analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile.analyzer
+    container_name: video2kb-analyzer
+    environment:
+      - ZAI_API_KEY=${ZAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - LLM_PROVIDER=${LLM_PROVIDER:-zai}
+      - LLM_MODEL=${LLM_MODEL:-glm-4.7}
+      - SPACY_MODEL=${SPACY_MODEL:-zh_core_web_sm}
+      - DATA_SERVICE_URL=${DATA_SERVICE_URL:-http://localhost:8000}
+      - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY:-}
+      - HF_ENDPOINT=https://hf-mirror.com
+    volumes:
+      - ./analyzer/data:/app/data
+      - ./shared:/app/shared:ro
+    restart: unless-stopped

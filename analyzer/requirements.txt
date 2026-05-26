@@ -1,0 +1,28 @@
+# Part 1 采集分析服务 — 精简依赖
+# 不含 neo4j/chromadb/networkx/sentence-transformers
+
+# 视频提取
+yt-dlp>=2024.1.1
+youtube-transcript-api>=0.6.1
+
+# 语音识别
+faster-whisper>=1.0.0
+
+# NLP
+spacy>=3.7.2
+
+# LLM
+openai>=1.6.0
+zhipuai>=2.0.0
+
+# 数据模型（Part 1/2 共享）
+pydantic>=2.0.0
+
+# HTTP 请求（与 Part 2 通信）
+requests>=2.31.0
+
+# 文档生成
+python-docx>=1.1.0
+
+# 工具
+python-dotenv>=1.0.0
