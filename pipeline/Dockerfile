@@ -7,11 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 先复制 shared 包（Part 1/2 共享的数据模型）
+# 先复制 shared 包（Pipeline/KB 共享的数据模型）
 COPY shared/ /app/shared/
 
 # 安装 Python 依赖
-COPY analyzer/requirements.txt /app/requirements.txt
+COPY pipeline/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # 预下载 Whisper 模型（避免运行时首次下载）
@@ -21,8 +21,8 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('base', dow
 # spaCy 中文模型
 RUN python -m spacy download zh_core_web_sm
 
-# 复制 Part 1 应用代码
-COPY analyzer/ /app/
+# 复制 Pipeline 应用代码
+COPY pipeline/ /app/
 
 # 数据目录
 RUN mkdir -p /app/data/{raw,transcripts,docs,logs,pending}

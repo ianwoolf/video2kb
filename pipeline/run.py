@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Part 1 入口 — 视频采集分析服务
+Pipeline 入口 — 视频采集分析服务
 
 加载 .env 环境变量，运行采集分析流水线或补传待发送数据。
 
@@ -12,10 +12,10 @@ Usage:
     python run.py --url "..." --no-local-report  # 不生成本地报告
 
 从项目根目录运行:
-    cd /data/code/video2kb && python -m part1.run --url "xxx"
+    cd /data/code/video2kb && python -m pipeline.run --url "xxx"
 
-从 part1 目录运行:
-    cd /data/code/video2kb/part1 && python run.py --url "xxx"
+从 pipeline 目录运行:
+    cd /data/code/video2kb/pipeline && python run.py --url "xxx"
 """
 import argparse
 import logging
@@ -57,7 +57,7 @@ def load_env():
 
 def run_single(args):
     """处理单个视频"""
-    from part1.scripts.run_pipeline import analyze
+    from pipeline.scripts.run_pipeline import analyze
 
     result = analyze(
         args.url,
@@ -81,7 +81,7 @@ def run_single(args):
 
 def run_batch(args):
     """批量处理视频"""
-    from part1.scripts.run_pipeline import analyze
+    from pipeline.scripts.run_pipeline import analyze
 
     url_file = Path(args.batch)
     if not url_file.exists():
@@ -119,7 +119,7 @@ def run_batch(args):
 
 def run_retry_pending(args):
     """补传待发送数据"""
-    from part1.scripts.data_client import retry_pending
+    from pipeline.scripts.data_client import retry_pending
 
     pending_dir = Path(__file__).resolve().parent / "data" / "pending"
     result = retry_pending(pending_dir=pending_dir)
@@ -130,7 +130,7 @@ def run_retry_pending(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="视频采集分析服务 — Part 1 入口",
+        description="视频采集分析服务 — Pipeline 入口",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -156,7 +156,7 @@ def main():
 
     # 控制选项
     parser.add_argument("--send", type=lambda v: v.lower() in ("true", "1", "yes"), default=True,
-                        help="是否发送到 Part 2 (默认: true)")
+                        help="是否发送到 KB (默认: true)")
     parser.add_argument("--format", choices=["markdown", "word", "both"], default="markdown",
                         help="报告格式 (默认: markdown)")
     parser.add_argument("--local-report", type=lambda v: v.lower() in ("true", "1", "yes"), default=True,

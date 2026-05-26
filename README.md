@@ -5,7 +5,7 @@
 ## 架构概览
 
 ```
-Part 1 (采集分析)                    Part 2 (数据服务)
+Pipeline (采集分析)                    KB (知识服务)
 ┌─────────────────┐               ┌──────────────────────┐
 │ 视频抓取        │               │ POST /api/ingest     │
 │ (yt-dlp)        │               │ GET  /api/query/*    │
@@ -23,7 +23,7 @@ Part 1 (采集分析)                    Part 2 (数据服务)
 ### 前置条件
 
 - Docker + Docker Compose
-- FFmpeg（Part 1 容器内已包含）
+- FFmpeg（Pipeline 容器内已包含）
 - 智谱 API Key（LLM + Embedding）
 
 ### 1. 配置
@@ -33,10 +33,10 @@ cp .env.example .env
 # 编辑 .env，填入 ZAI_API_KEY 等
 ```
 
-### 2. 启动 Part 2（数据服务）
+### 2. 启动 KB（知识服务）
 
 ```bash
-docker-compose -f docker-compose.part2.yml up -d
+cd kb && docker-compose up -d
 # API: http://localhost:8000
 # Neo4j UI: http://localhost:7474
 # API 文档: http://localhost:8000/docs
@@ -46,10 +46,10 @@ docker-compose -f docker-compose.part2.yml up -d
 
 ```bash
 # Docker 方式
-docker-compose -f docker-compose.part1.yml run analyzer --url "https://www.youtube.com/watch?v=xxx"
+cd pipeline && docker-compose run pipeline --url "https://www.youtube.com/watch?v=xxx"
 
 # 或本地运行（需安装依赖）
-cd part1 && pip install -r requirements.txt
+cd pipeline && pip install -r requirements.txt
 python run.py --url "https://www.youtube.com/watch?v=xxx"
 ```
 
@@ -69,30 +69,31 @@ curl -H "X-API-Key: your key" -H "Content-Type: application/json" \
 
 ```
 video2kb/
-├── shared/                  # Part 1/2 共享数据模型
+├── shared/                     # Pipeline/KB 共享数据模型
 │   └── schema.py
-├── part1/                   # 采集分析服务
-│   ├── run.py               # 入口
+├── pipeline/                   # 采集分析服务
+│   ├── run.py                  # 入口
 │   ├── scripts/
-│   │   ├── extract_video.py # 视频提取
-│   │   ├── transcribe.py    # ASR 转写
-│   │   ├── summarize.py     # LLM 总结
-│   │   ├── extract_entities.py  # 实体/关系提取
-│   │   ├── data_client.py   # Part 2 通信
-│   │   ├── generate_report.py   # 报告生成
-│   │   └── run_pipeline.py  # Pipeline 编排
+│   │   ├── extract_video.py    # 视频提取
+│   │   ├── transcribe.py       # ASR 转写
+│   │   ├── summarize.py        # LLM 总结
+│   │   ├── extract_entities.py # 实体/关系提取
+│   │   ├── data_client.py      # KB 通信
+│   │   ├── generate_report.py  # 报告生成
+│   │   └── run_pipeline.py     # Pipeline 编排
+│   ├── Dockerfile
+│   ├── docker-compose.yml
 │   └── requirements.txt
-├── part2/                   # 数据服务
+├── kb/                         # 知识服务
 │   ├── app/
-│   │   ├── main.py          # FastAPI 入口
-│   │   ├── config.py        # 配置管理
-│   │   ├── routers/         # API 路由
-│   │   └── services/        # 业务逻辑
+│   │   ├── main.py             # FastAPI 入口
+│   │   ├── config.py           # 配置管理
+│   │   ├── routers/            # API 路由
+│   │   └── services/           # 业务逻辑
+│   ├── Dockerfile
+│   ├── docker-compose.yml
 │   └── requirements.txt
-├── Dockerfile.part1
-├── Dockerfile.part2
-├── docker-compose.part1.yml
-├── docker-compose.part2.yml
+├── scripts/                    # 原始独立脚本
 └── .env.example
 ```
 

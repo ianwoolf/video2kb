@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Part 1 流水线 — 视频采集分析流水线
+Analyzer 流水线 — 视频采集分析流水线
 
 通过模块级 import 调用各步骤函数（而非 subprocess），方便未来并发改造。
-Step 5 (原 graph_store) 替换为调用 data_client.py 发送数据到 Part 2。
+Step 5 (原 graph_store) 替换为调用 data_client.py 发送数据到 Server。
 
 Usage:
     python3 run_pipeline.py --url "https://youtube.com/watch?v=xxx"
@@ -27,17 +27,17 @@ from shared.schema import (
     Summary, TranscriptSegment, VideoInfo,
 )
 
-from part1.scripts.data_client import send_to_part2
+from pipeline.scripts.data_client import send_to_kb
 
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s", stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 # 模块化导入各步骤
-from part1.scripts.extract_video import extract_video
-from part1.scripts.transcribe import transcribe
-from part1.scripts.summarize import summarize_with_llm, _rule_based_summarize
-from part1.scripts.extract_entities import extract
-from part1.scripts.generate_report import generate_report
+from pipeline.scripts.extract_video import extract_video
+from pipeline.scripts.transcribe import transcribe
+from pipeline.scripts.summarize import summarize_with_llm, _rule_based_summarize
+from pipeline.scripts.extract_entities import extract
+from pipeline.scripts.generate_report import generate_report
 
 
 def _build_video_info(raw: dict) -> VideoInfo:
@@ -183,7 +183,7 @@ def analyze(
     logger.info("[4/5] 提取实体与关系...")
     entity_raw = extract(transcript, source_url=url, use_llm=use_llm)
 
-    # ── Step 5: 构建 IngestPayload 并发送到 Part 2 ────────────────
+    # ── Step 5: 构建 IngestPayload 并发送到 Server ────────────────
     logger.info("[5/5] 构建数据包...")
     video_info = _build_video_info(video_raw)
     summary = _build_summary(summary_raw)
@@ -204,8 +204,8 @@ def analyze(
 
     send_result = {"status": "skipped"}
     if send:
-        logger.info("发送数据到 Part 2...")
-        send_result = send_to_part2(payload_dict, pending_dir=pending_dir)
+        logger.info("发送数据到 Server...")
+        send_result = send_to_kb(payload_dict, pending_dir=pending_dir)
     else:
         logger.info("跳过发送（--send=false）")
 
@@ -254,13 +254,13 @@ def analyze(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="视频采集分析流水线 — Part 1",
+        description="视频采集分析流水线 — Analyzer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--url", required=True, help="视频 URL")
     parser.add_argument("--output-dir", default="data", help="数据输出根目录 (默认: data)")
-    parser.add_argument("--send", action="store_true", default=True, help="发送到 Part 2 (默认: true)")
-    parser.add_argument("--no-send", dest="send", action="store_false", help="不发送到 Part 2")
+    parser.add_argument("--send", action="store_true", default=True, help="发送到 Server (默认: true)")
+    parser.add_argument("--no-send", dest="send", action="store_false", help="不发送到 Server")
     parser.add_argument("--local-report", action="store_true", default=True, help="生成本地报告 (默认: true)")
     parser.add_argument("--no-local-report", dest="local_report", action="store_false", help="不生成本地报告")
     parser.add_argument("--format", choices=["markdown", "word", "both"], default="markdown", help="报告格式 (默认: markdown)")

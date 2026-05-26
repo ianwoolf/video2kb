@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Data Client — 与 Part 2 数据服务通信
+Data Client — 与 Server 数据服务通信
 
 功能：
-- 将 IngestPayload 序列化为 JSON 并 POST 到 Part 2 的 /api/ingest 接口
-- Part 2 不可用时缓存到本地 data/pending/ 目录
+- 将 IngestPayload 序列化为 JSON 并 POST 到 Server 的 /api/ingest 接口
+- Server 不可用时缓存到本地 data/pending/ 目录
 - 支持重试和补传
 """
 import json
@@ -51,11 +51,11 @@ def _save_pending(payload_dict: dict, pending_dir: Path) -> str:
     return str(filepath)
 
 
-def send_to_part2(payload_dict: dict, pending_dir: Optional[Path] = None) -> dict:
+def send_to_kb(payload_dict: dict, pending_dir: Optional[Path] = None) -> dict:
     """
-    将 IngestPayload 发送到 Part 2 /api/ingest 接口
+    将 IngestPayload 发送到 Server /api/ingest 接口
 
-    如果 Part 2 不可用，自动缓存到 pending 目录。
+    如果 Server 不可用，自动缓存到 pending 目录。
     返回 {"status": "ok"|"cached"|"error", ...}
     """
     url = f"{DATA_SERVICE_URL}/api/ingest"
@@ -65,7 +65,7 @@ def send_to_part2(payload_dict: dict, pending_dir: Optional[Path] = None) -> dic
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            logger.info("发送数据到 Part 2 (尝试 %d/%d): %s", attempt, MAX_RETRIES, url)
+            logger.info("发送数据到 Server (尝试 %d/%d): %s", attempt, MAX_RETRIES, url)
             resp = requests.post(url, json=payload_dict, headers=headers, timeout=30)
 
             if resp.status_code == 200:
@@ -74,37 +74,37 @@ def send_to_part2(payload_dict: dict, pending_dir: Optional[Path] = None) -> dic
                 return {"status": "ok", "response": result}
 
             elif resp.status_code == 401:
-                logger.error("Part 2 API Key 无效 (HTTP 401)")
+                logger.error("Server API Key 无效 (HTTP 401)")
                 break
 
             elif resp.status_code == 422:
-                logger.error("Part 2 数据格式错误 (HTTP 422): %s", resp.text[:500])
+                logger.error("Server 数据格式错误 (HTTP 422): %s", resp.text[:500])
                 break
 
             else:
-                logger.warning("Part 2 返回 HTTP %d, 将重试...", resp.status_code)
+                logger.warning("Server 返回 HTTP %d, 将重试...", resp.status_code)
                 if attempt < MAX_RETRIES:
                     time.sleep(RETRY_DELAY * attempt)
                 continue
 
         except requests.exceptions.ConnectionError:
-            logger.warning("Part 2 不可用 (连接失败), 尝试 %d/%d", attempt, MAX_RETRIES)
+            logger.warning("Server 不可用 (连接失败), 尝试 %d/%d", attempt, MAX_RETRIES)
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY * attempt)
             continue
 
         except requests.exceptions.Timeout:
-            logger.warning("Part 2 请求超时, 尝试 %d/%d", attempt, MAX_RETRIES)
+            logger.warning("Server 请求超时, 尝试 %d/%d", attempt, MAX_RETRIES)
             if attempt < MAX_RETRIES:
                 time.sleep(RETRY_DELAY * attempt)
             continue
 
         except Exception as e:
-            logger.error("发送数据到 Part 2 失败: %s", e)
+            logger.error("发送数据到 Server 失败: %s", e)
             break
 
     # 所有重试失败，缓存到本地
-    logger.warning("Part 2 不可用，将数据缓存到本地 pending 目录")
+    logger.warning("Server 不可用，将数据缓存到本地 pending 目录")
     pending = _get_pending_dir(pending_dir)
     cached_path = _save_pending(payload_dict, pending)
     return {"status": "cached", "cached_path": cached_path}
@@ -130,7 +130,7 @@ def retry_pending(pending_dir: Optional[Path] = None) -> dict:
     for filepath in json_files:
         try:
             payload = json.loads(filepath.read_text(encoding="utf-8"))
-            result = send_to_part2_with_file(payload, pending)
+            result = send_to_kb_with_file(payload, pending)
 
             if result.get("status") == "ok":
                 filepath.unlink(missing_ok=True)
@@ -148,10 +148,10 @@ def retry_pending(pending_dir: Optional[Path] = None) -> dict:
     return {"total": len(json_files), "sent": sent, "failed": failed, "remaining": remaining}
 
 
-def send_to_part2_with_file(payload_dict: dict, pending_dir: Path) -> dict:
+def send_to_kb_with_file(payload_dict: dict, pending_dir: Path) -> dict:
     """
-    内部方法：发送数据到 Part 2，成功后删除对应的 pending 文件。
-    与 send_to_part2 不同的是，这个方法不会在失败时再次缓存。
+    内部方法：发送数据到 Server，成功后删除对应的 pending 文件。
+    与 send_to_kb 不同的是，这个方法不会在失败时再次缓存。
     """
     url = f"{DATA_SERVICE_URL}/api/ingest"
     headers = {"Content-Type": "application/json"}
@@ -163,8 +163,8 @@ def send_to_part2_with_file(payload_dict: dict, pending_dir: Path) -> dict:
         if resp.status_code == 200:
             return {"status": "ok", "response": resp.json()}
         else:
-            logger.warning("Part 2 返回 HTTP %d: %s", resp.status_code, resp.text[:200])
+            logger.warning("Server 返回 HTTP %d: %s", resp.status_code, resp.text[:200])
             return {"status": "error", "status_code": resp.status_code}
     except Exception as e:
-        logger.warning("连接 Part 2 失败: %s", e)
+        logger.warning("连接 Server 失败: %s", e)
         return {"status": "error", "error": str(e)}

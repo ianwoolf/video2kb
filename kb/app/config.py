@@ -1,5 +1,5 @@
 """
-Part 2 配置管理 — 使用 pydantic-settings 读取环境变量
+Server 配置管理 — 使用 pydantic-settings 读取环境变量
 """
 from __future__ import annotations
 

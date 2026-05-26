@@ -1,10 +1,10 @@
-name: video2kb-server
+name: video2kb-kb
 
 services:
-  api:
+  kb-api:
     build:
-      context: .
-      dockerfile: Dockerfile.server
+      context: ..                # 项目根目录（以便 COPY shared/）
+      dockerfile: kb/Dockerfile
     container_name: video2kb-api
     ports:
       - "${API_PORT:-8000}:8000"
@@ -18,7 +18,7 @@ services:
     volumes:
       - chroma_data:/app/data/chroma
       - pending_data:/app/data/pending
-      - ./shared:/app/shared:ro
+      - ../shared:/app/shared:ro
     depends_on:
       neo4j:
         condition: service_healthy

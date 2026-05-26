@@ -1,5 +1,5 @@
 """
-Part 2 FastAPI 入口 — Video2KB 数据服务
+Video2KB Knowledge Base — 数据服务 FastAPI 入口
 """
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     stream=sys.stderr,
 )
-logger = logging.getLogger("part2")
+logger = logging.getLogger("kb")
 
 
 # ── Lifespan (startup / shutdown) ─────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────
-    logger.info("Starting Part 2 Data Service...")
+    logger.info("Starting KB Data Service...")
 
     # Neo4j
     graph_service = None
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
     app.state.vector_service = vector_service
 
     logger.info(
-        "Part 2 ready — graph: %s, vector: %s",
+        "KB ready — graph: %s, vector: %s",
         "✅" if graph_service.available else "❌",
         "✅" if vector_service.available else "❌",
     )
@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────
-    logger.info("Shutting down Part 2 Data Service...")
+    logger.info("Shutting down KB Data Service...")
     if graph_service and hasattr(graph_service, "_driver") and graph_service._driver:
         try:
             graph_service._driver.close()
@@ -80,8 +80,8 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Video2KB Part 2 — Data Service",
-    description="接收 Part 1 分析结果，存入 Neo4j + ChromaDB，提供查询接口",
+    title="Video2KB — Knowledge Base",
+    description="接收 Pipeline 分析结果，存入 Neo4j + ChromaDB，提供查询接口",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -116,7 +116,7 @@ async def root():
     graph_ok = app.state.graph_service.available if hasattr(app.state, "graph_service") else False
     vector_ok = app.state.vector_service.available if hasattr(app.state, "vector_service") else False
     return {
-        "service": "Video2KB Part 2 — Data Service",
+        "service": "Video2KB — Knowledge Base",
         "version": "0.1.0",
         "status": {
             "neo4j": "connected" if graph_ok else "unavailable",

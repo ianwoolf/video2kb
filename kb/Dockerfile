@@ -8,15 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 先复制 shared 包（Part 1/2 共享的数据模型）
+# 先复制 shared 包（Pipeline/KB 共享的数据模型）
 COPY shared/ /app/shared/
 
 # 安装 Python 依赖
-COPY server/requirements.txt /app/requirements.txt
+COPY kb/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# 复制 Part 2 应用代码
-COPY server/ /app/
+# 复制 KB 应用代码
+COPY kb/ /app/
 
 # 数据目录
 RUN mkdir -p /app/data/{chroma,pending}

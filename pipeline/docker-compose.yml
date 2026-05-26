@@ -1,11 +1,11 @@
-name: video2kb-analyzer
+name: video2kb-pipeline
 
 services:
-  analyzer:
+  pipeline:
     build:
-      context: .
-      dockerfile: Dockerfile.analyzer
-    container_name: video2kb-analyzer
+      context: ..                # 项目根目录（以便 COPY shared/）
+      dockerfile: pipeline/Dockerfile
+    container_name: video2kb-pipeline
     environment:
       - ZAI_API_KEY=${ZAI_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -17,6 +17,6 @@ services:
       - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY:-}
       - HF_ENDPOINT=https://hf-mirror.com
     volumes:
-      - ./analyzer/data:/app/data
-      - ./shared:/app/shared:ro
+      - ./data:/app/data
+      - ../shared:/app/shared:ro
     restart: unless-stopped

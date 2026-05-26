@@ -1,5 +1,5 @@
 """
-请求 / 响应模型 — 从 shared 导入核心 Schema，补充 Part 2 专用模型
+请求 / 响应模型 — 从 shared 导入核心 Schema，补充 KB 专用模型
 """
 from __future__ import annotations
 
