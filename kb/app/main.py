@@ -28,61 +28,59 @@ async def lifespan(app: FastAPI):
     # ── Startup ───────────────────────────────────────────────────
     logger.info("Starting KB Data Service...")
 
-    # Neo4j
-    graph_service = None
-    try:
-        from neo4j import GraphDatabase
-        from app.services.graph_service import GraphService
-        driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
-        )
-        graph_service = GraphService(driver=driver)
-    except Exception as e:
-        logger.warning("Neo4j unavailable (service will start without graph): %s", e)
-        from app.services.graph_service import GraphService
-        graph_service = GraphService(driver=None)
-
+    # ── Memgraph（原 Neo4j）───────────────────────────────────────
+    from app.services.graph_service import GraphService
+    graph_service = GraphService(
+        enabled=settings.ENABLE_GRAPH,
+        uri=settings.MEMGRAPH_URI,
+        username=settings.MEMGRAPH_USER,
+        password=settings.MEMGRAPH_PASSWORD,
+    )
     app.state.graph_service = graph_service
 
-    # ChromaDB
-    vector_service = None
-    try:
-        import chromadb
-        from app.services.vector_service import VectorService
-        chroma_dir = Path(settings.CHROMA_DIR)
-        chroma_dir.mkdir(parents=True, exist_ok=True)
-        client = chromadb.PersistentClient(path=str(chroma_dir))
-        vector_service = VectorService(chroma_client=client, zai_api_key=settings.ZAI_API_KEY)
-    except Exception as e:
-        logger.warning("ChromaDB unavailable (service will start without vector): %s", e)
-        from app.services.vector_service import VectorService
-        vector_service = VectorService(chroma_client=None, zai_api_key=settings.ZAI_API_KEY)
-
+    # ── Qdrant（原 ChromaDB）───────────────────────────────────────
+    from app.services.vector_service import VectorService
+    vector_service = VectorService(
+        enabled=settings.ENABLE_VECTOR,
+        qdrant_host=settings.QDRANT_HOST,
+        qdrant_port=settings.QDRANT_PORT,
+        collection_name=settings.QDRANT_COLLECTION,
+        zai_api_key=settings.ZAI_API_KEY,
+        embedding_provider=settings.EMBEDDING_PROVIDER,
+        embedding_model=settings.EMBEDDING_MODEL,
+    )
     app.state.vector_service = vector_service
 
+    # ── LlamaIndex RAG ───────────────────────────────────────────
+    from app.services.llamaindex_service import LlamaIndexService
+    llamaindex_service = LlamaIndexService(
+        enabled=settings.ENABLE_LLAMAINDEX,
+        qdrant_host=settings.QDRANT_HOST,
+        qdrant_port=settings.QDRANT_PORT,
+        collection_name=settings.QDRANT_COLLECTION,
+        zai_api_key=settings.ZAI_API_KEY,
+        llm_model=settings.LLM_MODEL,
+    )
+    app.state.llamaindex_service = llamaindex_service
+
     logger.info(
-        "KB ready — graph: %s, vector: %s",
+        "KB ready — graph: %s, vector: %s, llamaindex: %s",
         "✅" if graph_service.available else "❌",
         "✅" if vector_service.available else "❌",
+        "✅" if llamaindex_service.available else "❌",
     )
 
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────
     logger.info("Shutting down KB Data Service...")
-    if graph_service and hasattr(graph_service, "_driver") and graph_service._driver:
-        try:
-            graph_service._driver.close()
-        except Exception:
-            pass
 
 
 # ── App ───────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Video2KB — Knowledge Base",
-    description="接收 Pipeline 分析结果，存入 Neo4j + ChromaDB，提供查询接口",
-    version="0.1.0",
+    description="接收 Pipeline 分析结果，存入 Memgraph + Qdrant，提供查询接口",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -115,18 +113,21 @@ app.include_router(query.router)
 async def root():
     graph_ok = app.state.graph_service.available if hasattr(app.state, "graph_service") else False
     vector_ok = app.state.vector_service.available if hasattr(app.state, "vector_service") else False
+    li_ok = app.state.llamaindex_service.available if hasattr(app.state, "llamaindex_service") else False
     return {
         "service": "Video2KB — Knowledge Base",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "status": {
-            "neo4j": "connected" if graph_ok else "unavailable",
-            "chromadb": "connected" if vector_ok else "unavailable",
+            "memgraph": "connected" if graph_ok else "unavailable",
+            "qdrant": "connected" if vector_ok else "unavailable",
+            "llamaindex": "connected" if li_ok else "unavailable",
         },
         "endpoints": {
             "ingest": "POST /api/ingest",
             "query_entity": "GET /api/query/entity?name=xxx",
             "query_video": "GET /api/query/video?url=xxx",
             "search": "POST /api/query/search",
+            "ask": "POST /api/query/ask",
             "subgraph": "GET /api/query/subgraph?entity=xxx&depth=2",
         },
     }

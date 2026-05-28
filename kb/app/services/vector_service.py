@@ -1,14 +1,18 @@
 """
-ChromaDB 向量操作 — 持久化存储 + 智谱 Embedding
-Embedding 方案：优先智谱 API，fallback 到 ChromaDB 默认 embedding function。
-ChromaDB 不可用时优雅降级。
+Qdrant 向量操作（替换原 ChromaDB）
+
+支持：
+  - 本地 Embedding（bge-small-zh-v1.5，通过 sentence-transformers）
+  - 智谱 API Embedding（fallback）
+  - ENABLE_VECTOR 开关
+Qdrant 不可用时优雅降级。
 """
 from __future__ import annotations
 
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +21,6 @@ _SHARED_DIR = str(Path(__file__).resolve().parents[2] / "shared")
 if _SHARED_DIR not in sys.path:
     sys.path.insert(0, _SHARED_DIR)
 from schema import IngestPayload  # noqa: E402
-
-_COLLECTION_NAME = "video2kb"
 
 
 def _get_zhipu_embedding(texts: List[str], api_key: str) -> Optional[List[List[float]]]:
@@ -39,42 +41,107 @@ def _get_zhipu_embedding(texts: List[str], api_key: str) -> Optional[List[List[f
 
 
 class VectorService:
-    def __init__(self, chroma_client=None, zai_api_key: str = ""):
-        self._client = chroma_client
+    def __init__(
+        self,
+        enabled: bool = True,
+        qdrant_host: str = "localhost",
+        qdrant_port: int = 6333,
+        collection_name: str = "video2kb",
+        zai_api_key: str = "",
+        embedding_provider: str = "local",
+        embedding_model: str = "BAAI/bge-small-zh-v1.5",
+    ):
+        """
+        enabled: ENABLE_VECTOR 开关
+        qdrant_host/port: Qdrant 服务地址
+        collection_name: Qdrant collection 名称
+        zai_api_key: 智谱 API key（fallback embedding）
+        embedding_provider: local | zhipu
+        embedding_model: 本地模型名或智谱模型名
+        """
+        self._enabled = enabled
         self._zai_api_key = zai_api_key
-        self._collection = None
+        self._embedding_provider = embedding_provider
+        self._embedding_model = embedding_model
+        self._collection_name = collection_name
         self._available = False
+        self._client = None
+        self._local_embedder = None
+        self._embedding_dim = 512  # bge-small-zh-v1.5 默认维度
 
-        if chroma_client is not None:
+        if not enabled:
+            logger.info("VectorService: DISABLED by ENABLE_VECTOR=false")
+            return
+
+        # 初始化本地 embedder
+        if embedding_provider == "local":
             try:
-                self._collection = chroma_client.get_or_create_collection(
-                    name=_COLLECTION_NAME,
-                    metadata={"hnsw:space": "cosine"},
-                )
-                self._available = True
-                logger.info("VectorService: ChromaDB connected, collection '%s'", _COLLECTION_NAME)
+                from sentence_transformers import SentenceTransformer
+                logger.info("VectorService: loading local model %s ...", embedding_model)
+                self._local_embedder = SentenceTransformer(embedding_model)
+                self._embedding_dim = self._local_embedder.get_sentence_embedding_dimension()
+                logger.info("VectorService: local model loaded, dim=%d", self._embedding_dim)
             except Exception as e:
-                logger.warning("VectorService: ChromaDB init failed: %s", e)
-                self._client = None
+                logger.warning("VectorService: local model load failed: %s", e)
+                logger.info("VectorService: falling back to zhipu embedding")
+                self._embedding_provider = "zhipu"
+
+        # 连接 Qdrant
+        try:
+            from qdrant_client import QdrantClient
+            self._client = QdrantClient(host=qdrant_host, port=qdrant_port)
+
+            # 确保 collection 存在
+            from qdrant_client.models import Distance, VectorParams
+            collections = [c.name for c in self._client.get_collections().collections]
+            if collection_name not in collections:
+                self._client.create_collection(
+                    collection_name=collection_name,
+                    vectors_config=VectorParams(size=self._embedding_dim, distance=Distance.COSINE),
+                )
+                logger.info("VectorService: created collection '%s' (dim=%d)", collection_name, self._embedding_dim)
+            else:
+                logger.info("VectorService: using existing collection '%s'", collection_name)
+
+            self._available = True
+            logger.info("VectorService: Qdrant connected at %s:%d", qdrant_host, qdrant_port)
+        except ImportError:
+            logger.warning("VectorService: qdrant-client not installed, vector disabled")
+        except Exception as e:
+            logger.warning("VectorService: Qdrant connection failed: %s", e)
 
     @property
     def available(self) -> bool:
-        return self._available
+        return self._enabled and self._available
 
-    def _compute_embeddings(self, texts: List[str]) -> Optional[List[List[float]]]:
-        """尝试智谱 API，fallback 返回 None（让 ChromaDB 用默认 embedding）。"""
-        result = _get_zhipu_embedding(texts, self._zai_api_key)
-        if result is not None:
-            logger.debug("VectorService: used 智谱 embedding for %d texts", len(texts))
-        return result
+    def _compute_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """计算文本 embedding，优先本地，fallback 智谱"""
+        # 1) 尝试本地 embedding
+        if self._local_embedder is not None:
+            try:
+                embeddings = self._local_embedder.encode(texts, normalize_embeddings=True)
+                return [e.tolist() for e in embeddings]
+            except Exception as e:
+                logger.warning("VectorService: local embedding failed: %s", e)
+
+        # 2) 尝试智谱 API
+        if self._zai_api_key:
+            result = _get_zhipu_embedding(texts, self._zai_api_key)
+            if result is not None:
+                logger.debug("VectorService: used 智谱 embedding for %d texts", len(texts))
+                return result
+
+        raise RuntimeError("No embedding method available (local model failed + zhipu API unavailable)")
 
     # ── Ingest ────────────────────────────────────────────────────────
 
     def ingest(self, payload: IngestPayload) -> int:
-        """向 ChromaDB 写入文档。返回存入的文档数量。"""
-        if not self._available:
-            logger.warning("VectorService.ingest: ChromaDB not available, skipping")
+        """向 Qdrant 写入文档。返回存入的文档数量。"""
+        if not self.available:
+            logger.warning("VectorService.ingest: not available, skipping")
             return 0
+
+        from qdrant_client.models import PointStruct
 
         video_url = payload.video.url
         video_title = payload.video.title
@@ -114,19 +181,31 @@ class VectorService:
             logger.info("VectorService.ingest: no documents to store for %s", video_url)
             return 0
 
-        # 尝试智谱 embedding
-        embeddings = self._compute_embeddings(docs)
+        # 计算 embeddings
+        try:
+            embeddings = self._compute_embeddings(docs)
+        except Exception as e:
+            logger.error("VectorService.ingest: embedding computation failed: %s", e)
+            return 0
+
+        # 构建 Qdrant Points（用 id hash 作为 uint64）
+        import hashlib
+        points = []
+        for i, (doc_id, embedding, metadata) in enumerate(zip(ids, embeddings, metadatas)):
+            point_id = int(hashlib.md5(doc_id.encode()).hexdigest()[:16], 16)
+            points.append(
+                PointStruct(
+                    id=point_id,
+                    vector=embedding,
+                    payload={"id": doc_id, **metadata},
+                )
+            )
 
         try:
-            kwargs: Dict[str, Any] = {
-                "documents": docs,
-                "metadatas": metadatas,
-                "ids": ids,
-            }
-            if embeddings is not None:
-                kwargs["embeddings"] = embeddings
-
-            self._collection.add(**kwargs)
+            self._client.upsert(
+                collection_name=self._collection_name,
+                points=points,
+            )
             logger.info("VectorService.ingest: stored %d docs for %s", len(docs), video_url)
             return len(docs)
         except Exception as e:
@@ -136,38 +215,28 @@ class VectorService:
     # ── Search ────────────────────────────────────────────────────────
 
     def search(self, query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """语义搜索：向量化查询文本 → ChromaDB cosine similarity。"""
-        if not self._available:
-            return [{"error": "chromadb_unavailable", "message": "ChromaDB is not connected"}]
+        """语义搜索：向量化查询文本 → Qdrant cosine similarity。"""
+        if not self.available:
+            return [{"error": "vector_unavailable", "message": "Vector DB is not connected"}]
+
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
 
         try:
-            # 尝试智谱 embedding
-            query_embeddings = self._compute_embeddings([query_text])
+            query_vector = self._compute_embeddings([query_text])[0]
 
-            kwargs: Dict[str, Any] = {
-                "query_texts": [query_text],
-                "n_results": min(top_k, self._collection.count() or 1),
-            }
-            if query_embeddings is not None:
-                kwargs["query_embeddings"] = query_embeddings
-                # 有自定义 embedding 时不需要 query_texts
-                kwargs.pop("query_texts")
+            results = self._client.search(
+                collection_name=self._collection_name,
+                query_vector=query_vector,
+                limit=top_k,
+            )
 
-            results = self._collection.query(**kwargs)
-
-            # 组装返回
             hits = []
-            ids = results.get("ids", [[]])[0]
-            documents = results.get("documents", [[]])[0]
-            metadatas = results.get("metadatas", [[]])[0]
-            distances = results.get("distances", [[]])[0]
-
-            for i, doc_id in enumerate(ids):
+            for result in results:
                 hit = {
-                    "id": doc_id,
-                    "document": documents[i] if i < len(documents) else "",
-                    "metadata": metadatas[i] if i < len(metadatas) else {},
-                    "distance": distances[i] if i < len(distances) else None,
+                    "id": result.payload.get("id", str(result.id)),
+                    "document": result.payload.get("text", ""),
+                    "metadata": {k: v for k, v in result.payload.items() if k != "text"},
+                    "score": result.score,
                 }
                 hits.append(hit)
 

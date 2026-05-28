@@ -33,3 +33,8 @@ class ApiResponse(BaseModel):
 class SearchQuery(BaseModel):
     query_text: str
     top_k: int = Field(default=10, ge=1, le=100)
+
+
+class AskQuery(BaseModel):
+    """RAG 问答请求"""
+    question: str
