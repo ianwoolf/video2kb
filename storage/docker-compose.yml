@@ -1,0 +1,20 @@
+name: video2kb-storage
+
+services:
+  storage:
+    build:
+      context: ..
+      dockerfile: storage/Dockerfile
+    container_name: video2kb-storage
+    ports:
+      - "${PORT:-8001}:8001"
+    environment:
+      - STORAGE_BACKEND=${STORAGE_BACKEND:-local}
+      - STORAGE_BASE_DIR=${STORAGE_BASE_DIR:-/app/data/storage}
+      - API_KEY=${API_KEY:-dev-key}
+    volumes:
+      - storage_data:/app/data/storage
+    restart: unless-stopped
+
+volumes:
+  storage_data:

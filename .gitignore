@@ -39,6 +39,8 @@ data/docs/*
 # Qdrant/Memgraph local data
 qdrant_storage/
 memgraph_data/
+# Storage service local data
+storage_data/
 
 # Environment / Secrets
 .env

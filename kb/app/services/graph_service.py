@@ -144,7 +144,7 @@ class GraphService:
         relations_stored = 0
 
         try:
-            # 1) MERGE Video 节点
+            # 1) MERGE Video 节点（含第三波新增的存储路径字段）
             self._execute_write(
                 """
                 MERGE (v:Video {url: $url})
@@ -154,7 +154,10 @@ class GraphService:
                     v.channel = $channel,
                     v.duration = $duration,
                     v.description = $description,
-                    v.published_at = $published_at
+                    v.published_at = $published_at,
+                    v.audio_storage_id = $audio_storage_id,
+                    v.audio_storage_path = $audio_storage_path,
+                    v.transcript_storage_id = $transcript_storage_id
                 """,
                 {
                     "url": video.url,
@@ -165,6 +168,9 @@ class GraphService:
                     "duration": video.duration,
                     "description": video.description,
                     "published_at": video.published_at or "",
+                    "audio_storage_id": payload.audio_storage_id or "",
+                    "audio_storage_path": payload.audio_storage_path or "",
+                    "transcript_storage_id": payload.transcript_storage_id or "",
                 },
             )
 

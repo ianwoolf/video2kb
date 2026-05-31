@@ -145,6 +145,10 @@ class VectorService:
 
         video_url = payload.video.url
         video_title = payload.video.title
+        # 第三波新增：存储路径
+        audio_storage_id = payload.audio_storage_id or ""
+        transcript_storage_id = payload.transcript_storage_id or ""
+        audio_storage_path = payload.audio_storage_path or ""
 
         docs = []
         metadatas = []
@@ -153,13 +157,21 @@ class VectorService:
         # 1) transcript 全文
         if payload.transcript.strip():
             docs.append(payload.transcript)
-            metadatas.append({"video_url": video_url, "type": "transcript", "title": video_title})
+            metadatas.append({
+                "video_url": video_url, "type": "transcript", "title": video_title,
+                "audio_storage_id": audio_storage_id,
+                "transcript_storage_id": transcript_storage_id,
+            })
             ids.append(f"transcript_{video_url}")
 
         # 2) summary
         if payload.summary.full_summary.strip():
             docs.append(payload.summary.full_summary)
-            metadatas.append({"video_url": video_url, "type": "summary", "title": video_title})
+            metadatas.append({
+                "video_url": video_url, "type": "summary", "title": video_title,
+                "audio_storage_id": audio_storage_id,
+                "transcript_storage_id": transcript_storage_id,
+            })
             ids.append(f"summary_{video_url}")
 
         # 3) 每个 entity 的 description

@@ -1,12 +1,9 @@
-# Pipeline 采集分析服务 — 精简依赖
-# 不含 neo4j/chromadb/networkx/sentence-transformers
+# Pipeline 采集分析服务 — 编排者（轻量，不含 Whisper）
+# faster-whisper 已移至 transcoder 服务
 
 # 视频提取
 yt-dlp>=2024.1.1
 youtube-transcript-api>=0.6.1
-
-# 语音识别
-faster-whisper>=1.0.0
 
 # NLP
 spacy>=3.7.2
@@ -18,7 +15,7 @@ zhipuai>=2.0.0
 # 数据模型（Pipeline/KB 共享）
 pydantic>=2.0.0
 
-# HTTP 请求（与 KB 通信）
+# HTTP 请求（与 Storage/Transcoder/KB 通信）
 requests>=2.31.0
 
 # 文档生成
@@ -26,3 +23,5 @@ python-docx>=1.1.0
 
 # 工具
 python-dotenv>=1.0.0
+tqdm>=4.66.0
+markdown2>=2.4.10
