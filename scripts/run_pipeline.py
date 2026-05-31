@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 SCRIPTS_DIR = Path(__file__).parent
 
+# 导入归档模块
+from archive import run_archive  # noqa: E402
+
 
 def run_script(script_name: str, args: list) -> dict:
     """Run a sub-script and parse its JSON output"""
@@ -51,7 +54,7 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
     logger.info("=== Starting pipeline for: %s ===", url)
 
     # Step 1: Video extraction (auto-detects if audio download is needed)
-    logger.info("[1/6] Extracting video info...")
+    logger.info("[1/7] Extracting video info...")
     extract_args = ["--url", url, "--output-dir", "data/raw"]
     video_info = run_script("extract_video.py", extract_args)
 
@@ -67,7 +70,7 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
 
     # Step 2: If no subtitles, use ASR
     if not transcript and audio_path:
-        logger.info("[2/6] Transcribing audio...")
+        logger.info("[2/7] Transcribing audio...")
         try:
             transcript_result = run_script("transcribe.py", [
                 "--audio", audio_path,
@@ -84,9 +87,9 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
             return {"error": f"Transcription failed: {e}", "video_info": video_info}
     else:
         if transcript:
-            logger.info("[2/6] Using extracted subtitle (skipping ASR)")
+            logger.info("[2/7] Using extracted subtitle (skipping ASR)")
         else:
-            logger.info("[2/6] No audio or subtitle available")
+            logger.info("[2/7] No audio or subtitle available")
 
     if not transcript:
         logger.error("No transcript available, cannot continue")
@@ -98,7 +101,7 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
         return {"error": "No transcript available", "video_info": video_info}
 
     # Step 3: Text summarization
-    logger.info("[3/6] Summarizing text...")
+    logger.info("[3/7] Summarizing text...")
     # Save transcript to a temporary file
     tmp_text = Path("data/transcripts/_pipeline_tmp.txt")
     tmp_text.parent.mkdir(parents=True, exist_ok=True)
@@ -110,14 +113,14 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
     ])
 
     # Step 4: Entity extraction
-    logger.info("[4/6] Extracting entities...")
+    logger.info("[4/7] Extracting entities...")
     entity_args = ["--input-file", str(tmp_text), "--source-url", url]
     if use_llm:
         entity_args.append("--use-llm")
     entity_result = run_script("extract_entities.py", entity_args)
 
     # Step 5: Knowledge graph storage
-    logger.info("[5/6] Storing to knowledge graph...")
+    logger.info("[5/7] Storing to knowledge graph...")
     video_info_json = json.dumps(video_info, ensure_ascii=False)
     entities_json = json.dumps(entity_result.get("entities", []), ensure_ascii=False)
     relations_json = json.dumps(entity_result.get("relations", []), ensure_ascii=False)
@@ -135,7 +138,7 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
         logger.info("Hint: %s", graph_result.get("fix_hint", ""))
 
     # Step 6: Report generation
-    logger.info("[6/6] Generating report...")
+    logger.info("[6/7] Generating report...")
     analysis = {
         "transcript": transcript,
         "summary": summary_result.get("summary", ""),
@@ -157,6 +160,22 @@ def analyze(url: str, graph: str = "networkx", fmt: str = "markdown", use_llm: b
         "--format", fmt,
         "--output-dir", "data/docs",
     ])
+
+    # Step 7: 归档
+    logger.info("[7/7] Archiving processed data...")
+    try:
+        archive_stats = run_archive(
+            video_info=video_info,
+            transcript=transcript,
+            audio_path=audio_path,
+            summary_result=summary_result,
+            entity_result=entity_result,
+        )
+        logger.info("Archive: %d files saved to %s", len(archive_stats.get("files", [])), archive_stats.get("archive_dir", ""))
+        if archive_stats.get("errors"):
+            logger.warning("Archive had %d errors", len(archive_stats["errors"]))
+    except Exception as e:
+        logger.error("Archive failed (non-fatal): %s", e)
 
     # Clean up temporary file
     tmp_text.unlink(missing_ok=True)

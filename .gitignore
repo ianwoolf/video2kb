@@ -28,12 +28,17 @@ ENV/
 
 # Data
 data/graph_state.gpickle
+data/archive/*
+!data/archive/.gitkeep
 data/raw/*
 !data/raw/.gitkeep
 data/transcripts/*
 !data/transcripts/.gitkeep
 data/docs/*
 !data/docs/.gitkeep
+# Qdrant/Memgraph local data
+qdrant_storage/
+memgraph_data/
 
 # Environment / Secrets
 .env

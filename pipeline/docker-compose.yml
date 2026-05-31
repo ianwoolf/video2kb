@@ -1,0 +1,22 @@
+name: video2kb-pipeline
+
+services:
+  pipeline:
+    build:
+      context: ..                # 项目根目录（以便 COPY shared/）
+      dockerfile: pipeline/Dockerfile
+    container_name: video2kb-pipeline
+    environment:
+      - ZAI_API_KEY=${ZAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - LLM_PROVIDER=${LLM_PROVIDER:-zai}
+      - LLM_MODEL=${LLM_MODEL:-glm-4.7}
+      - SPACY_MODEL=${SPACY_MODEL:-zh_core_web_sm}
+      - DATA_SERVICE_URL=${DATA_SERVICE_URL:-http://localhost:8000}
+      - DATA_SERVICE_API_KEY=${DATA_SERVICE_API_KEY:-}
+      - HF_ENDPOINT=https://hf-mirror.com
+    volumes:
+      - ./data:/app/data
+      - ../shared:/app/shared:ro
+    restart: unless-stopped
