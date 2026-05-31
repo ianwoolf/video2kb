@@ -42,9 +42,8 @@ async def lifespan(app: FastAPI):
     from app.services.vector_service import VectorService
     vector_service = VectorService(
         enabled=settings.ENABLE_VECTOR,
-        qdrant_host=settings.QDRANT_HOST,
-        qdrant_port=settings.QDRANT_PORT,
-        collection_name=settings.QDRANT_COLLECTION,
+        chroma_dir=settings.CHROMA_DIR,
+        collection_name=settings.CHROMA_COLLECTION,
         zai_api_key=settings.ZAI_API_KEY,
         embedding_provider=settings.EMBEDDING_PROVIDER,
         embedding_model=settings.EMBEDDING_MODEL,
@@ -119,7 +118,7 @@ async def root():
         "version": "0.2.0",
         "status": {
             "memgraph": "connected" if graph_ok else "unavailable",
-            "qdrant": "connected" if vector_ok else "unavailable",
+            "qdrant": "replaced_by_chromadb",
             "llamaindex": "connected" if li_ok else "unavailable",
         },
         "endpoints": {

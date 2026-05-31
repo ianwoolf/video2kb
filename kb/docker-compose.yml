@@ -10,70 +10,18 @@ services:
       - "${API_PORT:-8000}:8000"
     environment:
       - API_KEY=${API_KEY:-dev-key}
-      - ENABLE_GRAPH=${ENABLE_GRAPH:-true}
-      - MEMGRAPH_URI=bolt://memgraph:7687
-      - MEMGRAPH_USER=${MEMGRAPH_USER:-}
-      - MEMGRAPH_PASSWORD=${MEMGRAPH_PASSWORD:-}
-      - ENABLE_VECTOR=${ENABLE_VECTOR:-true}
-      - QDRANT_HOST=qdrant
-      - QDRANT_PORT=6333
-      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-video2kb}
-      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      - ENABLE_GRAPH=false
+      - ENABLE_VECTOR=true
+      - CHROMA_DIR=/app/data/chroma
+      - CHROMA_COLLECTION=${CHROMA_COLLECTION:-video2kb}
       - ZAI_API_KEY=${ZAI_API_KEY:-}
-      - ENABLE_LLAMAINDEX=${ENABLE_LLAMAINDEX:-true}
-      - LLM_MODEL=${LLM_MODEL:-glm-4-flash}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-zhipu}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-embedding-3}
+      - ENABLE_LLAMAINDEX=false
     volumes:
-      - archive_data:/app/data/archive
+      - chroma_data:/app/data/chroma
       - ../shared:/app/shared:ro
-    depends_on:
-      memgraph:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # ── Memgraph（图数据库，替换 Neo4j）──────────────────────────────
-  memgraph:
-    image: memgraph/memgraph:latest
-    container_name: video2kb-memgraph
-    ports:
-      - "${MEMGRAPH_BOLT_PORT:-7687}:7687"
-      - "${MEMGRAPH_UI_PORT:-3000}:3000"
-    environment:
-      - MEMGRAPH_LOG_LEVEL=WARNING
-      - MEMGRAPH_ALLOW_LOAD_CSV=TRUE
-      - MEMGRAPH_MEMORY_LIMIT=512
-    volumes:
-      - memgraph_data:/var/lib/memgraph
-      - memgraph_log:/var/log/memgraph
-    healthcheck:
-      test: ["CMD-SHELL", "echo 'RETURN 1' | mgconsole || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-
-  # ── Qdrant（向量数据库，替换 ChromaDB）────────────────────────────
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: video2kb-qdrant
-    ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
     restart: unless-stopped
 
 volumes:
-  archive_data:
-  memgraph_data:
-  memgraph_log:
-  qdrant_storage:
+  chroma_data:

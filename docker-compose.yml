@@ -1,49 +1,49 @@
 name: video2kb
 
-# 独立部署用的 compose 文件
-# KB 完整 compose 在 kb/docker-compose.yml
+# 基础设施 Docker Compose
+# Memgraph（图数据库）和 Qdrant 因树莓派5 16K page size jemalloc 兼容性问题暂时不可用
+# 当前使用 ChromaDB（纯 Python）替代 Qdrant，Memgraph 暂时关闭（ENABLE_GRAPH=false）
 
-services:
-  # ── Memgraph（图数据库）───────────────────────────────────────────
-  memgraph:
-    image: memgraph/memgraph:latest
-    container_name: video2kb-memgraph
-    ports:
-      - "${MEMGRAPH_BOLT_PORT:-7687}:7687"
-      - "${MEMGRAPH_UI_PORT:-3000}:3000"
-    environment:
-      - MEMGRAPH_LOG_LEVEL=WARNING
-      - MEMGRAPH_ALLOW_LOAD_CSV=TRUE
-      - MEMGRAPH_MEMORY_LIMIT=512
-    volumes:
-      - memgraph_data:/var/lib/memgraph
-      - memgraph_log:/var/log/memgraph
-    healthcheck:
-      test: ["CMD-SHELL", "echo 'RETURN 1' | mgconsole || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
+# 如需重新启用 Memgraph，需要解决 jemalloc 16K page size 问题
+# services:
+#   memgraph:
+#     image: memgraph/memgraph:latest
+#     container_name: video2kb-memgraph
+#     ports:
+#       - "${MEMGRAPH_BOLT_PORT:-7687}:7687"
+#       - "${MEMGRAPH_UI_PORT:-3000}:3000"
+#     environment:
+#       - MEMGRAPH_LOG_LEVEL=WARNING
+#       - MEMGRAPH_ALLOW_LOAD_CSV=TRUE
+#       - MEMGRAPH_MEMORY_LIMIT=512
+#     volumes:
+#       - memgraph_data:/var/lib/memgraph
+#       - memgraph_log:/var/log/memgraph
+#     healthcheck:
+#       test: ["CMD-SHELL", "echo 'RETURN 1' | mgconsole || exit 1"]
+#       interval: 15s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 30s
+#     restart: unless-stopped
+#
+#   qdrant:
+#     image: qdrant/qdrant:latest
+#     container_name: video2kb-qdrant
+#     ports:
+#       - "${QDRANT_HTTP_PORT:-6333}:6333"
+#       - "${QDRANT_GRPC_PORT:-6334}:6334"
+#     volumes:
+#       - qdrant_storage:/qdrant/storage
+#     healthcheck:
+#       test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
+#       interval: 15s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 20s
+#     restart: unless-stopped
 
-  # ── Qdrant（向量数据库）───────────────────────────────────────────
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: video2kb-qdrant
-    ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    restart: unless-stopped
-
-volumes:
-  memgraph_data:
-  memgraph_log:
-  qdrant_storage:
+# volumes:
+#   memgraph_data:
+#   memgraph_log:
+#   qdrant_storage:

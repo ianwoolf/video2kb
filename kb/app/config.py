@@ -1,5 +1,5 @@
 """
-Server 配置管理 — 使用 pydantic-settings 读取环境变量
+KB 配置管理 — 使用 pydantic-settings 读取环境变量
 """
 from __future__ import annotations
 
@@ -11,9 +11,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # ── API ────────────────────────────────────────────────────────────
@@ -31,21 +32,22 @@ class Settings(BaseSettings):
     NEO4J_USER: str = ""
     NEO4J_PASSWORD: str = ""
 
-    # ── Qdrant (原 ChromaDB) ───────────────────────────────────────────
+    # ── ChromaDB（向量数据库）──────────────────────────────────────────
     ENABLE_VECTOR: bool = True
+    CHROMA_DIR: str = "data/chroma"
+    CHROMA_COLLECTION: str = "video2kb"
+    # 保留旧变量兼容
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION: str = "video2kb"
-    # 保留旧变量兼容
-    CHROMA_DIR: str = "data/chroma"
 
     # ── Embedding ──────────────────────────────────────────────────────
     ZAI_API_KEY: str = ""
-    EMBEDDING_PROVIDER: str = "local"  # local | zhipu
-    EMBEDDING_MODEL: str = "BAAI/bge-small-zh-v1.5"
+    EMBEDDING_PROVIDER: str = "zhipu"  # zhipu（默认，云端） | local（本地 bge 模型）
+    EMBEDDING_MODEL: str = "embedding-3"
 
     # ── LlamaIndex ─────────────────────────────────────────────────────
-    ENABLE_LLAMAINDEX: bool = True
+    ENABLE_LLAMAINDEX: bool = False
     LLM_PROVIDER: str = "zhipu"
     LLM_MODEL: str = "glm-4-flash"
 

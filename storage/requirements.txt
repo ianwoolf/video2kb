@@ -7,4 +7,4 @@ python-dotenv>=1.0.0
 python-multipart>=0.0.6
 
 # 项目依赖
--e ../../shared
+-e ./shared

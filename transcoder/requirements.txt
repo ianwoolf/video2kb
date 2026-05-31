@@ -11,4 +11,4 @@ requests>=2.31.0
 faster-whisper>=1.0.0
 
 # 项目依赖
--e ../../shared
+-e ./shared
