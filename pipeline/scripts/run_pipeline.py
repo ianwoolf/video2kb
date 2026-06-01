@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Analyzer 流水线 — 视频采集分析流水线
+Pipeline 流水线 — 视频采集分析编排器
 
-通过模块级 import 调用各步骤函数（而非 subprocess），方便未来并发改造。
-Step 5 (原 graph_store) 替换为调用 data_client.py 发送数据到 Server。
+通过模块级 import 调用各步骤函数，通过 HTTP 调用外部服务。
+有字幕的视频直接使用字幕，无字幕的上传音频到 Storage + Transcoder 解码。
 
 Usage:
     python3 run_pipeline.py --url "https://youtube.com/watch?v=xxx"
@@ -13,8 +13,6 @@ import json
 import logging
 import os
 import sys
-import tempfile
-from datetime import datetime
 from pathlib import Path
 
 # 添加项目根目录到 path，以便 import shared
@@ -34,10 +32,13 @@ logger = logging.getLogger(__name__)
 
 # 模块化导入各步骤
 from pipeline.scripts.extract_video import extract_video
-from pipeline.scripts.transcribe import transcribe
 from pipeline.scripts.summarize import summarize_with_llm, _rule_based_summarize
 from pipeline.scripts.extract_entities import extract
 from pipeline.scripts.generate_report import generate_report
+
+# Transcoder 可用时用外部服务，否则 fallback 到本地 Whisper
+TRANSCODER_ENABLED = os.getenv("TRANSCODER_URL", "") != ""
+STORAGE_ENABLED = os.getenv("STORAGE_URL", "") != ""
 
 
 def _build_video_info(raw: dict) -> VideoInfo:
@@ -45,14 +46,13 @@ def _build_video_info(raw: dict) -> VideoInfo:
     platform = Platform(raw.get("platform", "youtube"))
     published_at = raw.get("published_at")
     if published_at and len(published_at) == 8:
-        # YYYYMMDD → YYYY-MM-DD
         published_at = f"{published_at[:4]}-{published_at[4:6]}-{published_at[6:8]}"
     return VideoInfo(
         platform=platform,
         url=raw.get("url", ""),
         title=raw.get("title", ""),
         description=raw.get("description", ""),
-        duration=raw.get("duration", 0),
+        duration=int(raw.get("duration", 0)),
         video_id=raw.get("video_id", ""),
         channel=raw.get("channel", ""),
         published_at=published_at,
@@ -60,7 +60,6 @@ def _build_video_info(raw: dict) -> VideoInfo:
 
 
 def _build_summary(raw: dict) -> Summary:
-    """将 summarize 的原始输出转换为 schema Summary"""
     return Summary(
         full_summary=raw.get("full_summary", raw.get("summary", "")),
         key_points=raw.get("key_points", []),
@@ -69,7 +68,6 @@ def _build_summary(raw: dict) -> Summary:
 
 
 def _build_entities(raw_entities: list) -> list:
-    """将 extract_entities 的原始实体列表转换为 schema Entity 列表"""
     entities = []
     for e in raw_entities:
         entities.append(Entity(
@@ -82,7 +80,6 @@ def _build_entities(raw_entities: list) -> list:
 
 
 def _build_relations(raw_relations: list) -> list:
-    """将 extract_entities 的原始关系列表转换为 schema Relation 列表"""
     relations = []
     for r in raw_relations:
         relations.append(Relation(
@@ -96,7 +93,6 @@ def _build_relations(raw_relations: list) -> list:
 
 
 def _build_transcript_segments(raw_segments: list) -> list:
-    """将 transcribe 的 segments 转换为 schema TranscriptSegment 列表"""
     return [
         TranscriptSegment(
             start=float(s.get("start", 0)),
@@ -105,6 +101,88 @@ def _build_transcript_segments(raw_segments: list) -> list:
         )
         for s in raw_segments
     ]
+
+
+def _transcribe_via_external(audio_path: str, video_id: str = "") -> dict:
+    """
+    通过 Storage + Transcoder 服务进行音频转写。
+
+    流程：上传音频到 Storage → 提交 Transcoder 任务 → 轮询完成 → 返回结果。
+    """
+    from pipeline.clients.storage_client import upload_file
+    from pipeline.clients.transcoder_client import submit_task, poll_task
+
+    logger.info("  [外部 ASR] 上传音频到 Storage: %s", audio_path)
+    storage_result = upload_file(
+        file_path=audio_path,
+        metadata={"video_id": video_id, "type": "audio"},
+    )
+    if not storage_result:
+        raise RuntimeError("上传音频到 Storage 失败")
+
+    audio_storage_id = storage_result["storage_id"]
+    audio_storage_path = storage_result.get("storage_path", "")
+    logger.info("  [外部 ASR] 音频已存储: %s", audio_storage_id)
+
+    # 提交转写任务
+    logger.info("  [外部 ASR] 提交转写任务...")
+    task_result = submit_task(
+        storage_id=audio_storage_id,
+        storage_path=audio_storage_path,
+        language="zh",
+        model=os.getenv("WHISPER_MODEL", "base"),
+    )
+    if not task_result:
+        raise RuntimeError("提交转写任务失败")
+
+    task_id = task_result["task_id"]
+    logger.info("  [外部 ASR] 任务已提交: %s，等待完成...", task_id)
+
+    # 轮询任务完成
+    transcode_result = poll_task(task_id)
+
+    if transcode_result["status"] == "completed":
+        logger.info("  [外部 ASR] 转写完成: %d 字符", len(transcode_result.get("text", "")))
+        return {
+            "text": transcode_result.get("text", ""),
+            "segments": transcode_result.get("segments", []),
+            "audio_storage_id": audio_storage_id,
+            "audio_storage_path": audio_storage_path,
+            "transcript_storage_id": transcode_result.get("transcript_storage_id", ""),
+            "transcript_text_storage_id": transcode_result.get("transcript_text_storage_id", ""),
+            "transcript_srt_storage_id": transcode_result.get("transcript_srt_storage_id", ""),
+            "source": "external",
+        }
+    elif transcode_result["status"] == "failed":
+        raise RuntimeError(f"转写任务失败: {transcode_result.get('error', 'unknown')}")
+    else:
+        raise RuntimeError(f"转写任务超时 (last status: {transcode_result.get('last_status', 'unknown')})")
+
+
+def _transcribe_local(audio_path: str, video_id: str = "") -> dict:
+    """
+    本地 Whisper fallback（不经过 Storage/Transcoder）。
+    当外部服务不可用时使用。
+    """
+    from pipeline.scripts.transcribe import transcribe
+    whisper_model = os.getenv("WHISPER_MODEL", "base")
+
+    logger.info("  [本地 ASR] faster-whisper 转写: %s (model=%s)", audio_path, whisper_model)
+    trans_result = transcribe(
+        audio_path,
+        language="zh",
+        model_size=whisper_model,
+        output_dir=str(Path(audio_path).parent.parent / "transcripts"),
+    )
+    logger.info("  [本地 ASR] 转写完成: %d 字符", len(trans_result.get("text", "")))
+    return {
+        "text": trans_result.get("text", ""),
+        "segments": trans_result.get("segments", []),
+        "audio_storage_id": "",
+        "audio_storage_path": audio_path,
+        "transcript_storage_id": "",
+        "source": "local",
+    }
 
 
 def analyze(
@@ -116,7 +194,6 @@ def analyze(
     output_base: str = "data",
 ) -> dict:
     """执行完整的视频分析流水线"""
-    # 计算各目录路径
     data_base = Path(output_base)
     raw_dir = data_base / "raw"
     transcript_dir = data_base / "transcripts"
@@ -124,6 +201,9 @@ def analyze(
     pending_dir = data_base / "pending"
 
     logger.info("=== 开始处理: %s ===", url)
+    logger.info("外部服务: Storage=%s, Transcoder=%s",
+                "✅" if STORAGE_ENABLED else "❌",
+                "✅" if TRANSCODER_ENABLED else "❌")
 
     # ── Step 1: 视频提取 ──────────────────────────────────────────
     logger.info("[1/5] 提取视频信息...")
@@ -132,37 +212,45 @@ def analyze(
     transcript = video_raw.get("transcript", "")
     audio_path = video_raw.get("audio_path", "")
     transcript_segments = []
+    video_id = video_raw.get("video_id", "")
 
     logger.info("视频标题: %s", video_raw.get("title", "(未知)"))
     logger.info("有字幕: %s", bool(transcript))
     logger.info("有音频: %s", bool(audio_path))
 
-    # ── Step 2: 语音转文字 ────────────────────────────────────────
-    if not transcript and audio_path:
+    # 存储路径（第三波新增）
+    audio_storage_id = ""
+    audio_storage_path = ""
+    transcript_storage_id = ""
+
+    # ── Step 2: 获取转写文本 ─────────────────────────────────────
+    if transcript:
+        logger.info("[2/5] 使用已提取的字幕（跳过 ASR）")
+    elif audio_path:
         logger.info("[2/5] 语音转文字...")
         try:
-            whisper_model = os.getenv("WHISPER_MODEL", "base")
-            trans_result = transcribe(
-                audio_path,
-                language="zh",
-                model_size=whisper_model,
-                output_dir=str(transcript_dir),
-            )
+            if TRANSCODER_ENABLED and STORAGE_ENABLED:
+                trans_result = _transcribe_via_external(audio_path, video_id)
+            else:
+                logger.info("  外部服务不可用，使用本地 Whisper fallback")
+                trans_result = _transcribe_local(audio_path, video_id)
+
             transcript = trans_result.get("text", "")
             transcript_segments = trans_result.get("segments", [])
+            audio_storage_id = trans_result.get("audio_storage_id", "")
+            audio_storage_path = trans_result.get("audio_storage_path", "")
+            transcript_storage_id = trans_result.get("transcript_storage_id", "")
             video_raw["transcript"] = transcript
+
             if transcript:
-                logger.info("转写成功，长度: %d 字符", len(transcript))
+                logger.info("  转写成功，长度: %d 字符", len(transcript))
             else:
-                logger.warning("转写完成但返回空文本")
+                logger.warning("  转写完成但返回空文本")
         except Exception as e:
-            logger.error("转写失败: %s", e)
+            logger.error("  转写失败: %s", e)
             return {"error": f"转写失败: {e}", "video_info": video_raw}
     else:
-        if transcript:
-            logger.info("[2/5] 使用已提取的字幕（跳过 ASR）")
-        else:
-            logger.info("[2/5] 无音频或字幕可用")
+        logger.info("[2/5] 无音频或字幕可用")
 
     if not transcript:
         logger.error("无可用转写文本，无法继续")
@@ -183,7 +271,7 @@ def analyze(
     logger.info("[4/5] 提取实体与关系...")
     entity_raw = extract(transcript, source_url=url, use_llm=use_llm)
 
-    # ── Step 5: 构建 IngestPayload 并发送到 Server ────────────────
+    # ── Step 5: 构建 IngestPayload 并发送到 KB ─────────────────────
     logger.info("[5/5] 构建数据包...")
     video_info = _build_video_info(video_raw)
     summary = _build_summary(summary_raw)
@@ -198,13 +286,16 @@ def analyze(
         summary=summary,
         entities=entities,
         relations=relations,
+        audio_storage_id=audio_storage_id,
+        audio_storage_path=audio_storage_path,
+        transcript_storage_id=transcript_storage_id,
     )
 
     payload_dict = payload.model_dump(mode="json")
 
     send_result = {"status": "skipped"}
     if send:
-        logger.info("发送数据到 Server...")
+        logger.info("发送数据到 KB...")
         send_result = send_to_kb(payload_dict, pending_dir=pending_dir)
     else:
         logger.info("跳过发送（--send=false）")
@@ -215,7 +306,6 @@ def analyze(
         logger.info("生成本地报告...")
         docs_dir.mkdir(parents=True, exist_ok=True)
 
-        # 保存中间结果文件
         video_info_path = docs_dir / "_pipeline_video_info.json"
         video_info_path.write_text(json.dumps(video_raw, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -245,6 +335,8 @@ def analyze(
         "relation_count": len(relations),
         "send_status": send_result.get("status", "skipped"),
         "document_path": report_path,
+        "audio_storage_id": audio_storage_id,
+        "transcript_storage_id": transcript_storage_id,
     }
 
     logger.info("=== 流水线完成！===")
@@ -254,13 +346,13 @@ def analyze(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="视频采集分析流水线 — Analyzer",
+        description="视频采集分析流水线 — Pipeline 编排器",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--url", required=True, help="视频 URL")
     parser.add_argument("--output-dir", default="data", help="数据输出根目录 (默认: data)")
-    parser.add_argument("--send", action="store_true", default=True, help="发送到 Server (默认: true)")
-    parser.add_argument("--no-send", dest="send", action="store_false", help="不发送到 Server")
+    parser.add_argument("--send", action="store_true", default=True, help="发送到 KB (默认: true)")
+    parser.add_argument("--no-send", dest="send", action="store_false", help="不发送到 KB")
     parser.add_argument("--local-report", action="store_true", default=True, help="生成本地报告 (默认: true)")
     parser.add_argument("--no-local-report", dest="local_report", action="store_false", help="不生成本地报告")
     parser.add_argument("--format", choices=["markdown", "word", "both"], default="markdown", help="报告格式 (默认: markdown)")

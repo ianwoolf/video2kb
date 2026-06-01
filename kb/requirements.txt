@@ -6,21 +6,17 @@ pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
 # ── Memgraph (替换 Neo4j) ────────────────────────────────────────────
-mgclient>=1.4.0
+# mgclient 无 ARM64 wheel，暂时关闭 ENABLE_GRAPH=false
+# mgclient>=1.4.0
 
-# ── Qdrant (替换 ChromaDB) ──────────────────────────────────────────
-qdrant-client>=1.9.0
+# ── ChromaDB（向量数据库，纯 Python 嵌入式）──────────────────────────
+chromadb>=0.4.0
 
 # ── Embedding ─────────────────────────────────────────────────────────
-# 本地 embedding（bge-small-zh-v1.5）
-sentence-transformers>=2.3.0
-# 智谱 API embedding（可选 fallback）
+# 智谱 API embedding（默认，云端）
 zhipuai>=2.0.0
-
-# ── LlamaIndex ────────────────────────────────────────────────────────
-llama-index>=0.11.0
-llama-index-vector-stores-qdrant>=0.2.0
-llama-index-llms-openai-like>=0.2.0
+# 本地 embedding（可选，bge-small-zh-v1.5，需 PyTorch）
+# sentence-transformers>=2.3.0
 
 # ── Utilities ─────────────────────────────────────────────────────────
 requests>=2.31.0

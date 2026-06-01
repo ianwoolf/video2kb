@@ -86,6 +86,11 @@ class IngestPayload(BaseModel):
     summary: Summary
     entities: List[Entity] = Field(default_factory=list)
     relations: List[Relation] = Field(default_factory=list)
+    # 物料存储路径（第三波新增）
+    audio_storage_id: str = ""                  # 音频在 Storage 中的 ID
+    audio_storage_path: str = ""               # 音频在 Storage 中的路径
+    transcript_storage_id: str = ""             # 转写文件在 Storage 中的 ID
+    transcript_storage_path: str = ""          # 转写文件在 Storage 中的路径
     analyzed_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 

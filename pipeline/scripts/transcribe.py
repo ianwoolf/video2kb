@@ -25,9 +25,8 @@ def format_timestamp_srt(seconds: float) -> str:
 
 def transcribe(audio_path: str, language: str = "zh", model_size: str = "base", output_dir: str = "data/transcripts") -> dict:
     from faster_whisper import WhisperModel
-    import torch
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"  # faster-whisper 用 ctranslate2，不需要 torch
     logger.info("加载 Whisper 模型: %s (%s)", model_size, device)
 
     model = WhisperModel(model_size, device=device)
