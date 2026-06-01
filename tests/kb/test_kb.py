@@ -26,10 +26,13 @@ class TestKBIngest:
         os.environ["API_KEY"] = "test-key"
         os.environ["ZAI_API_KEY"] = ""
 
+        from tests._helpers import push_service
+        push_service("kb")
+
         from fastapi.testclient import TestClient
         from kb.app.main import app
 
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-API-Key": "test-key"}) as client:
             yield client
 
         for key in ["ENABLE_GRAPH", "ENABLE_VECTOR", "ENABLE_LLAMAINDEX", "API_KEY", "ZAI_API_KEY"]:

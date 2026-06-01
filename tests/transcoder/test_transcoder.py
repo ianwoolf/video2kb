@@ -153,6 +153,9 @@ class TestTranscoderAPI:
         os.environ["STORAGE_URL"] = "http://mock-storage:8001"
         os.environ["WHISPER_MODEL"] = "tiny"
 
+        from tests._helpers import push_service
+        push_service("transcoder")
+
         from fastapi.testclient import TestClient
         from transcoder.app.main import app
 

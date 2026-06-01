@@ -121,22 +121,21 @@ class TestStorageAPI:
         import os
         os.environ["STORAGE_BACKEND"] = "local"
         os.environ["STORAGE_BASE_DIR"] = str(tmp_storage_dir)
-        os.environ["STORAGE_API_KEY"] = "test-key"
+        os.environ["API_KEY"] = "test-key"
 
-        # 需要让 import 能找到 storage 模块
-        import sys
-        project_root = Path(__file__).resolve().parent.parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
+        # 确保 `from app.xxx` 解析到 storage 服务
+        from tests._helpers import push_service
+        push_service("storage")
 
         from fastapi.testclient import TestClient
         from storage.app.main import app
 
-        client = TestClient(app)
-        yield client
+        client = TestClient(app, headers={"X-API-Key": "test-key"})
+        with client:
+            yield client
 
         # 清理环境变量
-        for key in ["STORAGE_BACKEND", "STORAGE_BASE_DIR", "STORAGE_API_KEY"]:
+        for key in ["STORAGE_BACKEND", "STORAGE_BASE_DIR", "API_KEY"]:
             os.environ.pop(key, None)
 
     def test_upload_file(self, storage_client, sample_audio_bytes):
@@ -162,9 +161,13 @@ class TestStorageAPI:
         response = storage_client.post("/api/upload", files=files, data=data)
         assert response.status_code == 200
 
-    def test_get_file_info(self, storage_client):
+    def test_get_file_info(self, storage_client, sample_audio_bytes):
         """查询文件元信息"""
-        storage_id = self.test_upload_file(storage_client)
+        # 先上传
+        files = {"file": ("test_audio.mp3", sample_audio_bytes, "audio/mpeg")}
+        resp = storage_client.post("/api/upload", files=files)
+        assert resp.status_code == 200
+        storage_id = resp.json()["storage_id"]
 
         response = storage_client.get(f"/api/files/{storage_id}/info")
         assert response.status_code == 200
@@ -173,7 +176,10 @@ class TestStorageAPI:
 
     def test_get_file_download(self, storage_client, sample_audio_bytes):
         """下载文件"""
-        storage_id = self.test_upload_file(storage_client)
+        files = {"file": ("test_audio.mp3", sample_audio_bytes, "audio/mpeg")}
+        resp = storage_client.post("/api/upload", files=files)
+        assert resp.status_code == 200
+        storage_id = resp.json()["storage_id"]
 
         response = storage_client.get(f"/api/files/{storage_id}")
         assert response.status_code == 200
@@ -184,9 +190,12 @@ class TestStorageAPI:
         response = storage_client.get("/api/files/nonexistent_id/info")
         assert response.status_code == 404
 
-    def test_delete_file(self, storage_client):
+    def test_delete_file(self, storage_client, sample_audio_bytes):
         """删除文件"""
-        storage_id = self.test_upload_file(storage_client)
+        files = {"file": ("test_audio.mp3", sample_audio_bytes, "audio/mpeg")}
+        resp = storage_client.post("/api/upload", files=files)
+        assert resp.status_code == 200
+        storage_id = resp.json()["storage_id"]
 
         response = storage_client.delete(f"/api/files/{storage_id}")
         assert response.status_code == 200
@@ -211,6 +220,9 @@ class TestStorageAPI:
         os.environ["STORAGE_API_KEY"] = "wrong-key"
 
         # 需要重新创建 app（middleware 在启动时绑定）
+        from tests._helpers import push_service
+        push_service("storage")
+
         from storage.app.main import app
         from fastapi.testclient import TestClient
         client = TestClient(app)

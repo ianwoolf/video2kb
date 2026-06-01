@@ -28,15 +28,19 @@ class TestStorageClientWithTestService:
         # Storage 服务配置
         os.environ["STORAGE_BACKEND"] = "local"
         os.environ["STORAGE_BASE_DIR"] = str(tmp_storage_dir)
-        os.environ["STORAGE_API_KEY"] = "test-key"
+        os.environ["API_KEY"] = "test-key"
+
+        from tests._helpers import push_service
+        push_service("storage")
 
         from fastapi.testclient import TestClient
         from storage.app.main import app
 
-        storage_client = TestClient(app)
-        yield {"storage": storage_client, "tmp_dir": tmp_storage_dir}
+        storage_client = TestClient(app, headers={"X-API-Key": "test-key"})
+        with storage_client:
+            yield {"storage": storage_client, "tmp_dir": tmp_storage_dir}
 
-        for key in ["STORAGE_BACKEND", "STORAGE_BASE_DIR", "STORAGE_API_KEY"]:
+        for key in ["STORAGE_BACKEND", "STORAGE_BASE_DIR", "API_KEY"]:
             os.environ.pop(key, None)
 
     def test_upload_and_get_info_via_client(self, services):
@@ -83,11 +87,11 @@ class TestTranscoderClientWithTestService:
         os.environ["STORAGE_URL"] = "http://mock-storage:8001"
         os.environ["WHISPER_MODEL"] = "tiny"
 
+        from tests._helpers import push_service
+        push_service("transcoder")
+
         from fastapi.testclient import TestClient
         from transcoder.app.main import app
-
-        with TestClient(app) as transcoder_client:
-            yield {"transcoder": transcoder_client}
 
         for key in ["TASK_QUEUE", "API_KEY", "STORAGE_URL", "WHISPER_MODEL"]:
             os.environ.pop(key, None)
@@ -125,10 +129,13 @@ class TestPipelineWithKBTestService:
         os.environ["API_KEY"] = "test-key"
         os.environ["ZAI_API_KEY"] = ""
 
+        from tests._helpers import push_service
+        push_service("kb")
+
         from fastapi.testclient import TestClient
         from kb.app.main import app
 
-        with TestClient(app) as client:
+        with TestClient(app, headers={"X-API-Key": "test-key"}) as client:
             yield client
 
         for key in ["ENABLE_GRAPH", "ENABLE_VECTOR", "ENABLE_LLAMAINDEX", "API_KEY", "ZAI_API_KEY"]:

@@ -85,7 +85,7 @@ class TestIngestPayload:
         )
         assert payload.video.platform == Platform.BILIBILI
         json_str = payload.model_dump_json()
-        assert '"platform": "bilibili"' in json_str
+        assert '"platform":"bilibili"' in json_str or '"platform": "bilibili"' in json_str
 
     def test_ingest_response(self):
         """IngestResponse 序列化"""

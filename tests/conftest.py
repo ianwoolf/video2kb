@@ -8,10 +8,32 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
+
+
+# ── 项目根目录 ──
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# ── 辅助函数：临时将某个服务目录插入 sys.path 最前面 ──
+def _push_service(service_dir: str):
+    """将指定服务目录插入 sys.path[0]，确保 `from app.xxx` 解析到正确服务。
+    返回一个 cleanup 函数，调用后恢复 sys.path。"""
+    svc_path = str(PROJECT_ROOT / service_dir)
+    if svc_path not in sys.path:
+        sys.path.insert(0, svc_path)
+        return lambda: sys.path.remove(svc_path)
+    else:
+        idx = sys.path.index(svc_path)
+        sys.path.pop(idx)
+        sys.path.insert(0, svc_path)
+        return lambda: None
 
 
 # ── 服务地址覆盖 ──
