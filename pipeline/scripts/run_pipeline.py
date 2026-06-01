@@ -52,7 +52,7 @@ def _build_video_info(raw: dict) -> VideoInfo:
         url=raw.get("url", ""),
         title=raw.get("title", ""),
         description=raw.get("description", ""),
-        duration=raw.get("duration", 0),
+        duration=int(raw.get("duration", 0)),
         video_id=raw.get("video_id", ""),
         channel=raw.get("channel", ""),
         published_at=published_at,
